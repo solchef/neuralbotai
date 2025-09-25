@@ -34,7 +34,7 @@ export function DashboardHeader({ user, tenant, collapsed, setCollapsed }: Dashb
   return (
     <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border/20 bg-background/80 backdrop-blur-xl px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
       {/* Sidebar toggle button */}
-      <button
+      {/* <button
         type="button"
         onClick={() => setCollapsed(!collapsed)}
         className="p-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -44,7 +44,7 @@ export function DashboardHeader({ user, tenant, collapsed, setCollapsed }: Dashb
         ) : (
           <ChevronLeft className="h-6 w-6" />
         )}
-      </button>
+      </button> */}
       <button
         type="button"
         className="-m-2.5 p-2.5 text-muted-foreground hover:text-foreground transition-colors lg:hidden"

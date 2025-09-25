@@ -31,8 +31,8 @@ export function SiteSidebar() {
                 { name: "Overview", href: `/dashboard/sites/${siteId}`, icon: Globe },
                 { name: "Analytics", href: `/dashboard/sites/${siteId}/analytics`, icon: BarChart3 },
                 { name: "Chat History", href: `/dashboard/sites/${siteId}/conversations`, icon: MessageSquare },
-                { name: "Leads", href: `/dashboard/sites/${siteId}/leads`, icon: Users },
-                { name: "Live Chat", href: `/dashboard/sites/${siteId}/live-chat`, icon: MessageSquare },
+                // { name: "Leads", href: `/dashboard/sites/${siteId}/leads`, icon: Users },
+                // { name: "Live Chat", href: `/dashboard/sites/${siteId}/live-chat`, icon: MessageSquare },
             ],
         },
         {
