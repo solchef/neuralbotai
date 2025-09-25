@@ -1,14 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -18,75 +16,51 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { FileText, Plus, Edit, Trash2 } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useSiteTextTrainingStore } from "@/store/useSiteTextTrainingStore"
 
 export default function TextTrainingPage() {
   const params = useParams()
   const siteId = params.id as string
+
+  const { textEntries, fetchTextEntries, addTextEntry, updateTextEntry, deleteTextEntry } =
+    useSiteTextTrainingStore()
 
   const [isAddingText, setIsAddingText] = useState(false)
   const [newTextTitle, setNewTextTitle] = useState("")
   const [newTextContent, setNewTextContent] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  // Mock text data
-  const textData = [
-    {
-      id: "1",
-      title: "Company Overview",
-      content:
-        "Neural.ai is a leading AI chatbot platform that helps businesses automate customer support and engagement. Our advanced natural language processing technology enables businesses to create intelligent chatbots that can understand and respond to customer queries in real-time.",
-      chars: 245,
-      dateAdded: "2024-01-15",
-      lastModified: "2024-01-15",
-    },
-    {
-      id: "2",
-      title: "Product Features",
-      content:
-        "Our platform offers easy chatbot creation, multi-channel integration, advanced analytics, and seamless deployment options. Users can train their bots using various data sources including websites, documents, and custom text.",
-      chars: 198,
-      dateAdded: "2024-01-14",
-      lastModified: "2024-01-16",
-    },
-    {
-      id: "3",
-      title: "Pricing Information",
-      content:
-        "We offer flexible pricing plans starting from a free tier for small businesses to enterprise solutions for large organizations. All plans include core features with varying limits on queries and integrations.",
-      chars: 187,
-      dateAdded: "2024-01-13",
-      lastModified: "2024-01-13",
-    },
-  ]
+  useEffect(() => {
+    fetchTextEntries(siteId)
+  }, [siteId, fetchTextEntries])
 
-  const totalChars = textData.reduce((sum, item) => sum + item.chars, 0)
-
-  const handleAddText = () => {
+  const handleAddText = async () => {
     if (newTextTitle.trim() && newTextContent.trim()) {
-      console.log("Adding text:", { title: newTextTitle, content: newTextContent })
+      await addTextEntry(siteId, newTextTitle, newTextContent)
       setNewTextTitle("")
       setNewTextContent("")
       setIsAddingText(false)
     }
   }
 
-  const handleEdit = (id: string) => {
-    setEditingId(id)
-  }
-
-  const handleSave = (id: string) => {
-    console.log("Saving text:", id)
+  const handleSave = async (id: string) => {
+    await updateTextEntry(id, newTextTitle, newTextContent)
     setEditingId(null)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this text entry?")) {
-      console.log("Deleting text:", id)
+      await deleteTextEntry(id)
     }
   }
 
+  const totalChars = textEntries.reduce((sum: any, item: any) => sum + item.chars, 0)
+  // console.log(totalChars)
   return (
     <div className="space-y-6">
+      {/* Header + Add Text */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Text</h1>
@@ -145,7 +119,7 @@ export default function TextTrainingPage() {
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <div>
-                <div className="text-2xl font-bold">{textData.length}</div>
+                <div className="text-2xl font-bold">{textEntries.length}</div>
                 <p className="text-xs text-muted-foreground">Text Entries</p>
               </div>
             </div>
@@ -169,7 +143,9 @@ export default function TextTrainingPage() {
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <div>
-                <div className="text-2xl font-bold">{Math.round(totalChars / textData.length)}</div>
+                <div className="text-2xl font-bold">
+                  {textEntries.length > 0 ? Math.round(totalChars / textEntries.length) : 0}
+                </div>
                 <p className="text-xs text-muted-foreground">Avg Characters</p>
               </div>
             </div>
@@ -177,7 +153,7 @@ export default function TextTrainingPage() {
         </Card>
       </div>
 
-      {/* Text Entries */}
+      {/* Table */}
       <Card>
         <CardHeader>
           <CardTitle>Text Entries</CardTitle>
@@ -195,7 +171,7 @@ export default function TextTrainingPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {textData.map((item) => (
+              {textEntries.map((item: any) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.title}</TableCell>
                   <TableCell className="max-w-md">
@@ -204,10 +180,10 @@ export default function TextTrainingPage() {
                   <TableCell>
                     <Badge variant="secondary">{item.chars.toLocaleString()}</Badge>
                   </TableCell>
-                  <TableCell className="text-sm">{new Date(item.dateAdded).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-sm">{new Date(item.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(item.id)}>
+                      <Button variant="ghost" size="sm" onClick={() => setEditingId(item.id)}>
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)}>

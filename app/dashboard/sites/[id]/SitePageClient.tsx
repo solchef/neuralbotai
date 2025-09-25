@@ -196,14 +196,14 @@ export default function SitePageClient({ siteId }: Props) {
     }
 
     const embedCode = `<script>
-(function() {
-  var script = document.createElement('script');
-  script.src = '${process.env.NEXT_PUBLIC_SITE_URL || "https://your-domain.com"}/widget.js';
-  script.setAttribute('data-site-id', '${site.id}');
-  script.setAttribute('data-token', '${site.widget_token_hash}');
-  document.head.appendChild(script);
-})();
-</script>`
+        (function() {
+        var script = document.createElement('script');
+        script.src = '${process.env.NEXT_PUBLIC_SITE_URL || "https://your-domain.com"}/widget.js';
+        script.setAttribute('data-site-id', '${site.id}');
+        script.setAttribute('data-token', '${site.widget_token_hash}');
+        document.head.appendChild(script);
+        })();
+        </script>`
 
     const handleCopy = () => {
         navigator.clipboard.writeText(embedCode)

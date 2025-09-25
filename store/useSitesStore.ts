@@ -1,10 +1,10 @@
 import { create } from "zustand"
 import { SupabaseService } from "@/lib/supabase/service"
 
+
 interface SitesState {
     isLoading: boolean
     error: string | null
-
     site: any | null
     recentChats: any[]
     totalQueries: number
@@ -21,9 +21,10 @@ interface SitesState {
     }) => Promise<string | null>
 
     fetchSiteData: (siteId: string) => Promise<void>
+    ingestSite: (siteId: string) => Promise<void>
 }
 
-export const useSitesStore = create<SitesState>((set) => ({
+export const useSitesStore = create<SitesState>((set, get) => ({
     isLoading: false,
     error: null,
     site: null,
@@ -84,6 +85,28 @@ export const useSitesStore = create<SitesState>((set) => ({
                 error:
                     err instanceof Error ? err.message : "Error fetching site details",
             })
+        } finally {
+            set({ isLoading: false })
+        }
+    },
+
+    ingestSite: async (siteId) => {
+        set({ isLoading: true, error: null })
+        try {
+            const res = await fetch(`/api/sites/${siteId}/ingest`, {
+                method: "POST",
+            })
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || "Failed to start ingestion")
+
+            // Optimistic update: set status to crawling immediately
+            const site = get().site
+            if (site) {
+                set({ site: { ...site, status: "crawling" } })
+            }
+        } catch (err) {
+            set({ error: err instanceof Error ? err.message : "Error ingesting site" })
         } finally {
             set({ isLoading: false })
         }

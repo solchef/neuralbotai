@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -31,10 +31,21 @@ import {
   XCircle,
   AlertCircle,
 } from "lucide-react"
+import { useSiteLinksTrainingStore, type Link } from "@/store/useSiteLinksTrainingStore"
 
 export default function LinksTrainingPage() {
   const params = useParams()
   const siteId = params.id as string
+
+  // Zustand store
+  const {
+    stats,
+    links,
+    fetchLinks,
+    addLinks,
+    retrainLinks,
+    deleteLinks,
+  } = useSiteLinksTrainingStore()
 
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -42,67 +53,16 @@ export default function LinksTrainingPage() {
   const [isAddingLinks, setIsAddingLinks] = useState(false)
   const [newLinks, setNewLinks] = useState("")
 
-  // Mock data matching the image
-  const crawlStats = {
-    crawledLinks: 32,
-    totalChars: "59.2K",
-    maxChars: "500K",
-    indexed: 31,
-    pending: 0,
-    failed: 0,
-    noSpace: 0,
-  }
+  // load on mount
+  useEffect(() => {
+    if (siteId) fetchLinks(siteId)
+  }, [siteId, fetchLinks])
 
-  const crawledData = [
-    {
-      id: "1",
-      status: "indexed",
-      chars: 1401,
-      data: {
-        title: "Education & Learning",
-        url: "https://sentseven.com/education",
-        description: "Transforming education with digital platforms, sma...",
-        image: "/diverse-students-learning.png",
-      },
-      dateAdded: "Sep 23/2025 12:29AM",
-      retrain: "-",
-      type: "website",
-    },
-    {
-      id: "2",
-      status: "indexed",
-      chars: 1374,
-      data: {
-        title: "Trading & FinTech",
-        url: "https://sentseven.com/trading",
-        description: "Advanced trading platforms and financial technology solutions...",
-        image: "/stock-market-analysis.png",
-      },
-      dateAdded: "Sep 23/2025 12:29AM",
-      retrain: "-",
-      type: "website",
-    },
-    {
-      id: "3",
-      status: "pending",
-      chars: 0,
-      data: {
-        title: "Healthcare Solutions",
-        url: "https://sentseven.com/healthcare",
-        description: "Digital healthcare platforms and telemedicine solutions...",
-        image: "/healthcare-abstract.png",
-      },
-      dateAdded: "Sep 23/2025 12:30AM",
-      retrain: "-",
-      type: "website",
-    },
-  ]
-
-  const filteredData = crawledData.filter((item) => {
+  const filteredData = links.filter((item: Link) => {
     const matchesSearch =
       searchQuery === "" ||
-      item.data.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.data.url.toLowerCase().includes(searchQuery.toLowerCase())
+      (item.title?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      item.url.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesStatus = statusFilter === "all" || item.status === statusFilter
 
@@ -155,19 +115,20 @@ export default function LinksTrainingPage() {
     }
   }
 
-  const handleAddLinks = () => {
-    // Process new links
-    console.log("Adding links:", newLinks)
+  const handleAddLinks = async () => {
+    if (!newLinks.trim()) return
+    await addLinks(siteId, newLinks.split("\n"))
     setNewLinks("")
     setIsAddingLinks(false)
   }
 
-  const handleRetrain = () => {
-    console.log("Retraining bot with selected items:", selectedItems)
+  const handleRetrain = async () => {
+    await retrainLinks(selectedItems)
+    setSelectedItems([])
   }
 
-  const handleDelete = () => {
-    console.log("Deleting selected items:", selectedItems)
+  const handleDelete = async () => {
+    await deleteLinks(selectedItems)
     setSelectedItems([])
   }
 
@@ -182,78 +143,12 @@ export default function LinksTrainingPage() {
 
       {/* Stats Cards */}
       <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div className="text-2xl font-bold">{crawlStats.crawledLinks}</div>
-                <p className="text-xs text-muted-foreground">Crawled Links</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div className="text-2xl font-bold">{crawlStats.totalChars}</div>
-                <p className="text-xs text-muted-foreground">/ {crawlStats.maxChars}</p>
-                <p className="text-xs text-muted-foreground">Chars</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <div>
-                <div className="text-2xl font-bold">{crawlStats.indexed}</div>
-                <p className="text-xs text-muted-foreground">Indexed</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <div>
-                <div className="text-2xl font-bold">{crawlStats.pending}</div>
-                <p className="text-xs text-muted-foreground">Pending</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <div>
-                <div className="text-2xl font-bold">{crawlStats.failed}</div>
-                <p className="text-xs text-muted-foreground">Failed</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              <div>
-                <div className="text-2xl font-bold">{crawlStats.noSpace}</div>
-                <p className="text-xs text-muted-foreground">No Space</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-2"><Globe className="h-4 w-4 text-muted-foreground" /><div><div className="text-2xl font-bold">{stats.crawledLinks}</div><p className="text-xs text-muted-foreground">Crawled Links</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" /><div><div className="text-2xl font-bold">{stats.totalChars}</div><p className="text-xs text-muted-foreground">/ {stats.maxChars}</p><p className="text-xs text-muted-foreground">Chars</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full"></div><div><div className="text-2xl font-bold">{stats.indexed}</div><p className="text-xs text-muted-foreground">Indexed</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-blue-500 rounded-full"></div><div><div className="text-2xl font-bold">{stats.pending}</div><p className="text-xs text-muted-foreground">Pending</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-red-500 rounded-full"></div><div><div className="text-2xl font-bold">{stats.failed}</div><p className="text-xs text-muted-foreground">Failed</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-orange-500 rounded-full"></div><div><div className="text-2xl font-bold">{stats.noSpace}</div><p className="text-xs text-muted-foreground">No Space</p></div></div></CardContent></Card>
       </div>
 
       {/* Actions Bar */}
@@ -281,10 +176,7 @@ export default function LinksTrainingPage() {
             </div>
             <Dialog open={isAddingLinks} onOpenChange={setIsAddingLinks}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Links / Upload Docs
-                </Button>
+                <Button><Plus className="h-4 w-4 mr-2" />Add Links / Upload Docs</Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
@@ -296,7 +188,7 @@ export default function LinksTrainingPage() {
                     <Label htmlFor="links">Website Links</Label>
                     <Textarea
                       id="links"
-                      placeholder="Enter website URLs (one per line)&#10;https://example.com&#10;https://example.com/about&#10;https://example.com/contact"
+                      placeholder="Enter URLs (one per line)"
                       value={newLinks}
                       onChange={(e) => setNewLinks(e.target.value)}
                       rows={6}
@@ -305,15 +197,11 @@ export default function LinksTrainingPage() {
                   <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
                     <Upload className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground mb-2">Or drag and drop files here</p>
-                    <p className="text-xs text-muted-foreground">Supported formats: PDF, DOC, DOCX, TXT</p>
-                    <Button variant="outline" className="mt-4 bg-transparent">
-                      Choose Files
-                    </Button>
+                    <p className="text-xs text-muted-foreground">Supported: PDF, DOC, TXT</p>
+                    <Button variant="outline" className="mt-4 bg-transparent">Choose Files</Button>
                   </div>
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsAddingLinks(false)}>
-                      Cancel
-                    </Button>
+                    <Button variant="outline" onClick={() => setIsAddingLinks(false)}>Cancel</Button>
                     <Button onClick={handleAddLinks}>Add Training Data</Button>
                   </div>
                 </div>
@@ -342,12 +230,11 @@ export default function LinksTrainingPage() {
                 <TableHead>CHARS</TableHead>
                 <TableHead>DATA</TableHead>
                 <TableHead>DATE ADDED</TableHead>
-                <TableHead>RETRAIN</TableHead>
                 <TableHead>TYPE</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredData.map((item) => (
+              {filteredData.map((item: Link) => (
                 <TableRow key={item.id}>
                   <TableCell>
                     <Checkbox
@@ -366,31 +253,19 @@ export default function LinksTrainingPage() {
                   <TableCell className="font-mono text-sm">{item.chars.toLocaleString()}</TableCell>
                   <TableCell>
                     <div className="flex items-start gap-3 max-w-md">
-                      <img
-                        src={item.data.image || "/placeholder.svg"}
-                        alt=""
-                        className="w-10 h-10 rounded object-cover flex-shrink-0"
-                      />
+                      <img src={item.image || "/placeholder.svg"} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate">
-                          <a
-                            href={item.data.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            {item.data.title}
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            {item.title}
                           </a>
                         </p>
-                        <p className="text-xs text-muted-foreground line-clamp-2">{item.data.description}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm">{item.dateAdded}</TableCell>
-                  <TableCell>{item.retrain}</TableCell>
-                  <TableCell>
-                    <Globe className="h-4 w-4" />
-                  </TableCell>
+                  <TableCell className="text-sm">{new Date(item.created_at).toLocaleString()}</TableCell>
+                  <TableCell><Globe className="h-4 w-4" /></TableCell>
                 </TableRow>
               ))}
             </TableBody>

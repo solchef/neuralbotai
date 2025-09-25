@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,96 +18,60 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { MessageSquare, Plus, Edit, Trash2, Search } from "lucide-react"
+import { useSiteQATrainingStore } from "@/store/useSiteQATrainingStore"
 
 export default function QATrainingPage() {
   const params = useParams()
   const siteId = params.id as string
+
+  const { qa, fetchQA, addQA, editQA, deleteQA } = useSiteQATrainingStore()
 
   const [isAddingQA, setIsAddingQA] = useState(false)
   const [newQuestion, setNewQuestion] = useState("")
   const [newAnswer, setNewAnswer] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Mock Q&A data
-  const qaData = [
-    {
-      id: "1",
-      question: "What are your business hours?",
-      answer:
-        "We're open Monday through Friday from 9 AM to 6 PM EST. Our AI chatbot is available 24/7 to help with basic inquiries.",
-      category: "General",
-      dateAdded: "2024-01-15",
-      lastModified: "2024-01-15",
-    },
-    {
-      id: "2",
-      question: "How do I reset my password?",
-      answer:
-        "To reset your password, click on the 'Forgot Password' link on the login page, enter your email address, and follow the instructions sent to your email.",
-      category: "Account",
-      dateAdded: "2024-01-14",
-      lastModified: "2024-01-16",
-    },
-    {
-      id: "3",
-      question: "What payment methods do you accept?",
-      answer:
-        "We accept all major credit cards (Visa, MasterCard, American Express), PayPal, and bank transfers for enterprise customers.",
-      category: "Billing",
-      dateAdded: "2024-01-13",
-      lastModified: "2024-01-13",
-    },
-    {
-      id: "4",
-      question: "Can I integrate the chatbot with my existing website?",
-      answer:
-        "Yes! Our chatbot can be easily integrated into any website using our JavaScript widget, WordPress plugin, or API integration.",
-      category: "Technical",
-      dateAdded: "2024-01-12",
-      lastModified: "2024-01-14",
-    },
-    {
-      id: "5",
-      question: "Do you offer a free trial?",
-      answer:
-        "Yes, we offer a 14-day free trial with full access to all features. No credit card required to get started.",
-      category: "Pricing",
-      dateAdded: "2024-01-11",
-      lastModified: "2024-01-11",
-    },
-  ]
+  // Load Q&A from supabase when siteId changes
+  useEffect(() => {
+    if (siteId) fetchQA(siteId)
+  }, [siteId, fetchQA])
 
-  const filteredQA = qaData.filter(
-    (item) =>
+  const filteredQA = qa.filter(
+    (item: any) =>
       searchQuery === "" ||
       item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.answer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchQuery.toLowerCase()),
+      (item.category?.toLowerCase() ?? "").includes(searchQuery.toLowerCase()),
   )
 
-  const categories = [...new Set(qaData.map((item) => item.category))]
+  const categories = [...new Set(qa.map((item: any) => item.category).filter(Boolean))]
 
-  const handleAddQA = () => {
+  const handleAddQA = async () => {
     if (newQuestion.trim() && newAnswer.trim()) {
-      console.log("Adding Q&A:", { question: newQuestion, answer: newAnswer })
+      await addQA(siteId, newQuestion, newAnswer)
       setNewQuestion("")
       setNewAnswer("")
       setIsAddingQA(false)
     }
   }
 
-  const handleEdit = (id: string) => {
-    console.log("Editing Q&A:", id)
+  const handleEdit = async (id: string) => {
+    const updatedQ = prompt("Enter new question:")
+    const updatedA = prompt("Enter new answer:")
+    if (updatedQ && updatedA) {
+      await editQA(id, updatedQ, updatedA)
+    }
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this Q&A pair?")) {
-      console.log("Deleting Q&A:", id)
+      await deleteQA(id)
     }
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Q&A</h1>
@@ -167,7 +131,7 @@ export default function QATrainingPage() {
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
               <div>
-                <div className="text-2xl font-bold">{qaData.length}</div>
+                <div className="text-2xl font-bold">{qa.length}</div>
                 <p className="text-xs text-muted-foreground">Q&A Pairs</p>
               </div>
             </div>
@@ -192,7 +156,9 @@ export default function QATrainingPage() {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
               <div>
                 <div className="text-2xl font-bold">
-                  {Math.round(qaData.reduce((sum, item) => sum + item.answer.length, 0) / qaData.length)}
+                  {qa.length > 0
+                    ? Math.round(qa.reduce((sum: any, item: any) => sum + item.answer.length, 0) / qa.length)
+                    : 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Avg Answer Length</p>
               </div>
@@ -207,8 +173,10 @@ export default function QATrainingPage() {
               <div>
                 <div className="text-2xl font-bold">
                   {
-                    qaData.filter((item) => new Date(item.dateAdded) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
-                      .length
+                    qa.filter(
+                      (item: any) =>
+                        new Date(item.dateAdded) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+                    ).length
                   }
                 </div>
                 <p className="text-xs text-muted-foreground">Added This Week</p>
@@ -251,7 +219,7 @@ export default function QATrainingPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredQA.map((item) => (
+              {filteredQA.map((item: any) => (
                 <TableRow key={item.id}>
                   <TableCell className="max-w-xs">
                     <p className="font-medium text-sm line-clamp-2">{item.question}</p>
@@ -260,9 +228,11 @@ export default function QATrainingPage() {
                     <p className="text-sm text-muted-foreground line-clamp-3">{item.answer}</p>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{item.category}</Badge>
+                    <Badge variant="outline">{item.category ?? "Uncategorized"}</Badge>
                   </TableCell>
-                  <TableCell className="text-sm">{new Date(item.dateAdded).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-sm">
+                    {item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : "-"}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button variant="ghost" size="sm" onClick={() => handleEdit(item.id)}>
