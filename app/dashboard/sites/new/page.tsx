@@ -2,7 +2,6 @@
 
 import type React from "react"
 
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,6 +13,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Globe, FileText, Upload } from "lucide-react"
+import { useSitesStore } from "@/store/useSitesStore"
 
 export default function NewSitePage() {
   const [title, setTitle] = useState("")
@@ -24,76 +24,28 @@ export default function NewSitePage() {
   const [maxPages, setMaxPages] = useState("100")
   const [excludePatterns, setExcludePatterns] = useState("")
   const [files, setFiles] = useState<FileList | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // const [isLoading, setIsLoading] = useState(false)
+  // const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+
+  const { createSite, isLoading, error } = useSitesStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError(null)
-
-    const supabase = createClient()
-
-    try {
-      // Get current user and tenant
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-
-      const { data: membership } = await supabase
-        .from("memberships")
-        .select("tenant_id")
-        .eq("user_id", user.id)
-        .single()
-
-      if (!membership) throw new Error("No tenant found")
-
-      // Generate widget token
-      const widgetToken = crypto.randomUUID()
-
-      // Create site
-      const { data: site, error: siteError } = await supabase
-        .from("sites")
-        .insert({
-          tenant_id: membership.tenant_id,
-          title,
-          description,
-          domain: domain || null,
-          status: "pending",
-          widget_token_hash: widgetToken,
-          crawl_settings: {
-            max_depth: Number.parseInt(maxDepth),
-            max_pages: Number.parseInt(maxPages),
-            exclude_patterns: excludePatterns.split("\n").filter((p) => p.trim()),
-          },
-        })
-        .select()
-        .single()
-
-      if (siteError) throw siteError
-
-      // If documents were uploaded, handle file upload
-      if (ingestType === "documents" && files && files.length > 0) {
-        // In a real implementation, you would upload files to storage
-        // and trigger document processing
-        console.log("Files to process:", files)
-      }
-
-      // Trigger ingestion process
-      if (ingestType === "website" && domain) {
-        // In a real implementation, you would trigger the crawling process
-        await supabase.from("sites").update({ status: "crawling" }).eq("id", site.id)
-      }
-
-      router.push(`/dashboard/sites/${site.id}`)
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
-    } finally {
-      setIsLoading(false)
-    }
+    const siteId = await createSite({
+      title,
+      description,
+      domain,
+      ingestType,
+      maxDepth,
+      maxPages,
+      excludePatterns,
+      files,
+    })
+    if (siteId) router.push(`/dashboard/sites/${siteId}`)
   }
+
+
 
   return (
     <div className="min-h-screen bg-background">

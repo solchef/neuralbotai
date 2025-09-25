@@ -26,28 +26,26 @@ import { MessageSquare, Users, Clock, TrendingUp, ThumbsUp, ThumbsDown, Download
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"]
 
 export default function SiteAnalyticsPage() {
-  const params = useParams()
-  const siteId = params.id as string
   const [timeRange, setTimeRange] = useState("7d")
   const [loading, setLoading] = useState(true)
   const [analytics, setAnalytics] = useState<any>(null)
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [siteId, timeRange])
+  // useEffect(() => {
+  //   fetchAnalytics()
+  // }, [siteId, timeRange])
 
-  const fetchAnalytics = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch(`/api/sites/${siteId}/analytics?range=${timeRange}`)
-      const data = await response.json()
-      setAnalytics(data)
-    } catch (error) {
-      console.error("Failed to fetch analytics:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // const fetchAnalytics = async () => {
+  //   setLoading(true)
+  //   try {
+  //     const response = await fetch(`/api/sites/${siteId}/analytics?range=${timeRange}`)
+  //     const data = await response.json()
+  //     setAnalytics(data)
+  //   } catch (error) {
+  //     console.error("Failed to fetch analytics:", error)
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
 
   if (loading) {
     return (
@@ -213,7 +211,7 @@ export default function SiteAnalyticsPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${(Number(percent) * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"

@@ -1,7 +1,7 @@
 import type React from "react"
-import { requireAuth, getCurrentTenant } from "@/lib/auth/server"
 import { redirect } from "next/navigation"
 import { DashboardLayoutClient } from "@/components/dashboard/layout-client"
+import { getCurrentTenant, requireAuth } from "@/lib/auth/server"
 
 export default async function DashboardLayout({
   children,
