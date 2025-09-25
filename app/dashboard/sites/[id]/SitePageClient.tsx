@@ -38,7 +38,7 @@ export default function SitePageClient({ site, recentChats, totalQueries }: Site
     return (
         <div className="min-h-screen bg-background">
             {/* Header */}
-            <div className="border-b border-border">
+            {/* <div className="border-b border-border">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -64,7 +64,7 @@ export default function SitePageClient({ site, recentChats, totalQueries }: Site
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> */}
 
             {/* Main Content */}
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">

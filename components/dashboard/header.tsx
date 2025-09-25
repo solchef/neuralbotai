@@ -11,25 +11,40 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Menu, User, LogOut, HelpCircle, Zap, Crown } from "lucide-react"
+import { Bell, Menu, User, LogOut, HelpCircle, Zap, Crown, ChevronRight, ChevronLeft } from "lucide-react"
 import Link from "next/link"
 
 interface DashboardHeaderProps {
   user: any
   tenant: any
+  collapsed: boolean
+  setCollapsed: (value: boolean) => void
+
 }
 
-export function DashboardHeader({ user, tenant }: DashboardHeaderProps) {
+export function DashboardHeader({ user, tenant, collapsed, setCollapsed }: DashboardHeaderProps) {
   const userInitials = user.user_metadata?.name
     ? user.user_metadata.name
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase()
     : user.email?.charAt(0).toUpperCase() || "U"
 
   return (
-    <div className="sticky top-0 z-40 flex h-20 shrink-0 items-center gap-x-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+    <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border/20 bg-background/80 backdrop-blur-xl px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+      {/* Sidebar toggle button */}
+      <button
+        type="button"
+        onClick={() => setCollapsed(!collapsed)}
+        className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-6 w-6" />
+        ) : (
+          <ChevronLeft className="h-6 w-6" />
+        )}
+      </button>
       <button
         type="button"
         className="-m-2.5 p-2.5 text-muted-foreground hover:text-foreground transition-colors lg:hidden"
@@ -81,11 +96,10 @@ export function DashboardHeader({ user, tenant }: DashboardHeaderProps) {
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                   <Badge
                     variant="secondary"
-                    className={`text-xs w-fit ${
-                      tenant.plan?.name === "Business"
-                        ? "bg-primary/10 text-primary border-primary/20"
-                        : "bg-muted text-muted-foreground"
-                    }`}
+                    className={`text-xs w-fit ${tenant.plan?.name === "Business"
+                      ? "bg-primary/10 text-primary border-primary/20"
+                      : "bg-muted text-muted-foreground"
+                      }`}
                   >
                     {tenant.plan?.name === "Business" && <Crown className="h-3 w-3 mr-1" />}
                     {tenant.plan?.name || "Free Plan"}

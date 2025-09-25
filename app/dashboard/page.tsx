@@ -11,6 +11,7 @@ export default async function DashboardPage() {
     const tenant = await getCurrentTenant()
     const supabase = await createClient()
 
+
     // Get sites for this tenant
     const { data: sites } = await supabase
         .from("sites")
@@ -37,7 +38,7 @@ export default async function DashboardPage() {
 
     return (
         <div className="space-y-10">
-            <div className="relative">
+            {/* <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-blue-500/5 rounded-2xl" />
                 <div className="relative p-8">
                     <h1 className="text-4xl font-bold tracking-tight mb-3">
@@ -47,7 +48,7 @@ export default async function DashboardPage() {
                         Monitor your AI chatbots, analyze performance, and scale your conversational AI platform.
                     </p>
                 </div>
-            </div>
+            </div> */}
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <Card className="border-border glow-card hover:border-primary/20 transition-all duration-300">
