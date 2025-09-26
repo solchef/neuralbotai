@@ -11,8 +11,9 @@ export default function WidgetPage() {
     const [input, setInput] = useState("");
     const chatEndRef = useRef<HTMLDivElement>(null);
     const [isDark, setIsDark] = useState(false);
-    const [currentBotMessage, setCurrentBotMessage] = useState(""); // streaming text
-    const [dots, setDots] = useState(""); // typing dots animation
+    const [currentBotMessage, setCurrentBotMessage] = useState("");
+    const [dots, setDots] = useState("");
+    const [menuOpen, setMenuOpen] = useState(false);
 
     // Dark mode detection
     useEffect(() => {
@@ -23,8 +24,37 @@ export default function WidgetPage() {
         return () => mediaQuery.removeEventListener("change", handler);
     }, []);
 
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest("#sentseven-menu")) setMenuOpen(false);
+        };
+        document.addEventListener("click", handler);
+        return () => document.removeEventListener("click", handler);
+    }, []);
+
     const scrollToBottom = () => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    const clearChat = () => {
+        setMessages([]);
+        setCurrentBotMessage("");
+    };
+
+    const exportChat = () => {
+        const text = messages
+            .map((m) => `${m.from === "user" ? "You" : "Bot"}: ${m.text}`)
+            .join("\n\n");
+
+        const blob = new Blob([text], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "chat-export.txt";
+        link.click();
+        URL.revokeObjectURL(url);
     };
 
     const sendMessage = async () => {
@@ -33,11 +63,10 @@ export default function WidgetPage() {
         const userMessage = { from: "user" as const, text: input };
         setMessages((prev) => [...prev, userMessage]);
         setInput("");
-        setCurrentBotMessage("👨‍💻"); // initial placeholder
+        setCurrentBotMessage("👨‍💻");
         setDots("");
         scrollToBottom();
 
-        // Typing dots animation
         let dotIndex = 0;
         const dotInterval = setInterval(() => {
             dotIndex = (dotIndex + 1) % 4;
@@ -61,7 +90,7 @@ export default function WidgetPage() {
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let botText = "";
-            const interval = 25; // speed per character
+            const interval = 25;
 
             while (true) {
                 const { value, done } = await reader.read();
@@ -76,9 +105,8 @@ export default function WidgetPage() {
                 }
             }
 
-            // Final message added to chat
             setMessages((prev) => [...prev, { from: "bot", text: botText }]);
-        } catch (err) {
+        } catch {
             setMessages((prev) => [...prev, { from: "bot", text: "❌ Error: Could not get response" }]);
         } finally {
             clearInterval(dotInterval);
@@ -87,22 +115,73 @@ export default function WidgetPage() {
         }
     };
 
-    // Update current bot message with dots
-    useEffect(() => {
-        if (currentBotMessage) {
-            setCurrentBotMessage((prev) => prev.replace(/\.*$/, dots));
-        }
-    }, [dots]);
-
     return (
         <div
-            className={`h-screen w-screen flex flex-col font-sans transition-colors duration-300 ${isDark ? "bg-gradient-to-b from-gray-900 to-black text-white" : "bg-gradient-to-b from-blue-50 to-white text-gray-900"
+            className={`h-screen w-screen flex flex-col font-sans transition-colors duration-300 ${isDark
+                ? "bg-gradient-to-b from-gray-900 to-black text-white"
+                : "bg-gradient-to-b from-blue-50 to-white text-gray-900"
                 }`}
         >
             {/* Header */}
-            <div className={`p-4 text-lg font-semibold shadow ${isDark ? "bg-gray-800 text-white" : "bg-blue-600 text-white"}`}>
-                Sentseven
+            <div
+                className={`p-4 text-lg font-semibold shadow flex justify-between items-center ${isDark ? "bg-gray-800 text-white" : "bg-blue-600 text-white"
+                    }`}
+            >
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
+                        AI
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold">Sentseven Assistant</p>
+                        <p className="text-xs opacity-80">Online</p>
+                    </div>
+                </div>
+                <div id="sentseven-menu" className="flex items-center gap-2 relative">
+                    {/* 3-dots menu button */}
+                    <button
+                        onClick={() => setMenuOpen((prev) => !prev)}
+                        className="p-1 rounded hover:bg-white/10"
+                    >
+                        ⋮
+                    </button>
+
+                    {/* Dropdown */}
+                    {menuOpen && (
+                        <div
+                            className={`absolute right-10 top-10 w-32 rounded-md shadow-lg z-50 ${isDark ? "bg-gray-700 text-white" : "bg-white text-gray-900"
+                                }`}
+                        >
+                            <button
+                                onClick={() => {
+                                    clearChat();
+                                    setMenuOpen(false);
+                                }}
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+                            >
+                                Clear Chat
+                            </button>
+                            <button
+                                onClick={() => {
+                                    exportChat();
+                                    setMenuOpen(false);
+                                }}
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+                            >
+                                Export Chat
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Close button */}
+                    <button
+                        onClick={() => window.parent.postMessage({ type: "CLOSE_WIDGET" }, "*")}
+                        className="p-1 rounded hover:bg-white/10"
+                    >
+                        ✕
+                    </button>
+                </div>
             </div>
+
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -121,16 +200,23 @@ export default function WidgetPage() {
                         <ReactMarkdown
                             components={{
                                 a: ({ href, children }) => {
-                                    // Only use SPA navigation for internal links
                                     if (href?.startsWith("/")) {
                                         return (
-                                            <Link href={href} className="text-green-400 underline hover:text-green-600">
+                                            <Link
+                                                href={href}
+                                                className="text-green-400 underline hover:text-green-600"
+                                            >
                                                 {children}
                                             </Link>
                                         );
                                     }
                                     return (
-                                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-600">
+                                        <a
+                                            href={href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-400 underline hover:text-blue-600"
+                                        >
                                             {children}
                                         </a>
                                     );
@@ -139,14 +225,15 @@ export default function WidgetPage() {
                         >
                             {msg.text}
                         </ReactMarkdown>
-
                     </div>
                 ))}
 
-                {/* Streaming bot message with dots */}
+                {/* Streaming bot message */}
                 {currentBotMessage && (
                     <div
-                        className={`px-4 py-2 rounded-2xl max-w-[75%] break-words ${isDark ? "bg-gray-700 text-gray-100 mr-auto shadow-sm" : "bg-gray-200 text-gray-900 mr-auto shadow-sm"
+                        className={`px-4 py-2 rounded-2xl max-w-[75%] break-words ${isDark
+                            ? "bg-gray-700 text-gray-100 mr-auto shadow-sm"
+                            : "bg-gray-200 text-gray-900 mr-auto shadow-sm"
                             }`}
                     >
                         {currentBotMessage}
@@ -157,7 +244,10 @@ export default function WidgetPage() {
             </div>
 
             {/* Input */}
-            <div className={`p-3 border-t flex items-center gap-2 shadow-inner ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+            <div
+                className={`p-3 border-t flex items-center gap-2 shadow-inner ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+                    }`}
+            >
                 <input
                     className={`flex-1 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 ${isDark
                         ? "bg-gray-700 text-white border border-gray-600 focus:ring-blue-400"

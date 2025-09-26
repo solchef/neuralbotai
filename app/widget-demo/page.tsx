@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import Script from "next/script"
 
 export default function WidgetDemoPage() {
   return (
@@ -116,16 +117,12 @@ export default function WidgetDemoPage() {
           </Card>
         </div>
       </div>
-
-      {/* Widget Script - In a real implementation, this would be added by the customer */}
-      <script
-        src="/widget.js"
+      {/* ✅ Proper Script loader */}
+      <Script
+        src="/chat-bot-widget.js"
         data-site-id="demo-site-id"
         data-token="demo-token"
-        async
-        dangerouslySetInnerHTML={{
-          __html: "",
-        }}
+        strategy="afterInteractive"
       />
     </div>
   )

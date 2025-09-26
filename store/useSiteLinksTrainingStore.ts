@@ -8,14 +8,18 @@ export type LinkStatus = "indexed" | "pending" | "failed" | "no-space"
 export interface Link {
     id: string
     site_id: string
+    type: "link" | "doc"           // NEW: to handle both links & docs
     url: string
     title: string | null
     description: string | null
     image: string | null
     chars: number
     status: LinkStatus
+    file_name?: string | null      // NEW: only present if type = "doc"
+    file_size?: number | null      // NEW: only present if type = "doc"
     created_at: string
 }
+
 
 interface CrawlStats {
     crawledLinks: number
@@ -35,7 +39,9 @@ interface LinkState {
     addLinks: (siteId: string, urls: string[]) => Promise<void>
     deleteLinks: (ids: string[]) => Promise<void>
     retrainLinks: (ids: string[]) => Promise<void>
+    uploadDocuments: (siteId: string, files: File[]) => Promise<void>
 }
+
 
 // normalize raw DB status -> LinkStatus
 const validStatuses: LinkStatus[] = ["indexed", "pending", "failed", "no-space"]
@@ -57,13 +63,7 @@ export const useSiteLinksTrainingStore = create<LinkState>((set, get) => ({
 
     fetchLinks: async (siteId) => {
         set({ loading: true })
-        const rawLinks = await SupabaseService.getLinks(siteId)
-
-        // 🔑 map raw DB rows into typed Link[]
-        const links: Link[] = rawLinks.map((l) => ({
-            ...l,
-            status: normalizeStatus(l.status),
-        }))
+        const links = await SupabaseService.getLinks(siteId)
 
         const stats: CrawlStats = {
             crawledLinks: links.length,
@@ -121,9 +121,10 @@ export const useSiteLinksTrainingStore = create<LinkState>((set, get) => ({
     retrainLinks: async (ids) => {
         await SupabaseService.retrainLinks(ids)
 
-        // Optimistic update
         const links = get().links.map((l) =>
-            ids.includes(l.id) ? { ...l, status: "pending" } : l
+            ids.includes(l.id)
+                ? { ...l, status: "pending" as LinkStatus } // 👈 cast explicitly
+                : l
         )
 
         const stats: CrawlStats = {
@@ -136,6 +137,34 @@ export const useSiteLinksTrainingStore = create<LinkState>((set, get) => ({
             noSpace: links.filter((l) => l.status === "no-space").length,
         }
 
-        // set({ links, stats })
+        set({ links, stats })
     },
+
+    uploadDocuments: async (siteId: string, files: File[]) => {
+        set({ loading: true })
+
+        const uploadedDocs = await Promise.all(
+            files.map((file) => SupabaseService.uploadDocument(siteId, file))
+        )
+
+        // `uploadDocument` returns Link[], so flatten
+        const flatDocs = uploadedDocs.flat()
+
+        set((state) => {
+            const links = [...flatDocs, ...state.links]
+
+            const stats: CrawlStats = {
+                crawledLinks: links.length,
+                totalChars: links.reduce((sum, l) => sum + (l.chars || 0), 0),
+                maxChars: state.stats.maxChars,
+                indexed: links.filter((l) => l.status === "indexed").length,
+                pending: links.filter((l) => l.status === "pending").length,
+                failed: links.filter((l) => l.status === "failed").length,
+                noSpace: links.filter((l) => l.status === "no-space").length,
+            }
+
+            return { links, stats, loading: false }
+        })
+    }
 }))
+

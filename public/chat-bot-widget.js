@@ -1,27 +1,16 @@
-(function () {
-    // Prevent duplicate injection
-    if (document.getElementById("sentseven-chat-launcher")) return;
+; (() => {
+  if (window.__SENTSEVEN_WIDGET__) return;
+  window.__SENTSEVEN_WIDGET__ = true;
 
-    // --- Styles ---
-    const style = document.createElement("style");
-    style.textContent = `
-    #sentseven-chat-iframe {
-      position: fixed;
-      bottom: 90px;
-      right: 20px;
-      width: 380px;
-      height: 520px;
-      border: none;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-      display: none;
-      z-index: 999999;
-    }
+  const baseUrl = "http://localhost:3000"; // remove trailing slash
 
+  // --- Styles ---
+  const style = document.createElement("style");
+  style.textContent = `
     #sentseven-chat-launcher {
       position: fixed;
       bottom: 20px;
-      right: 10px;
+      right: 20px;
       width: 60px;
       height: 60px;
       border-radius: 50%;
@@ -30,8 +19,8 @@
       justify-content: center;
       cursor: pointer;
       z-index: 999999;
-      background: var(--chat-launcher-bg, #2563eb);
-      color: var(--chat-launcher-text, #fff);
+      background: #2563eb;
+      color: #fff;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       transition: all 0.3s ease;
     }
@@ -45,28 +34,68 @@
       width: 28px;
       height: 28px;
     }
+
+    #sentseven-chat-iframe {
+      position: fixed;
+      bottom: 90px;
+      right: 20px;
+      width: 380px;
+      height: 520px;
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      display: none;
+      z-index: 999999;
+      overflow: hidden;
+      background: #fff;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 480px) {
+      #sentseven-chat-iframe {
+        width: calc(100vw - 40px);
+        height: calc(100vh - 100px);
+        bottom: 80px;
+        right: 20px;
+      }
+    }
   `;
-    document.head.appendChild(style);
+  document.head.appendChild(style);
 
-    // --- Iframe ---
-    const iframe = document.createElement("iframe");
-    iframe.id = "sentseven-chat-iframe";
-    iframe.src = "https://aibot.centseven.com/widget"; // change when deployed
-    document.body.appendChild(iframe);
+  // --- Iframe ---
+  const iframe = document.createElement("iframe");
+  iframe.id = "sentseven-chat-iframe";
+  iframe.src = `${baseUrl}/widget`; // points to your Next.js WidgetPage
+  document.body.appendChild(iframe);
 
-    // --- Launcher Button ---
-    const launcher = document.createElement("div");
-    launcher.id = "sentseven-chat-launcher";
-    launcher.innerHTML = `
+  // --- Launcher ---
+  const launcher = document.createElement("div");
+  launcher.id = "sentseven-chat-launcher";
+  launcher.innerHTML = `
     <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M12 3C6.48 3 2 6.93 2 12c0 2.41 1.05 4.63 2.81 6.29L4 21l3.03-1.36C8.09 20.55 9.99 21 12 21c5.52 0 10-3.93 10-9s-4.48-9-10-9zm0 14c-1.1 0-2.12-.23-3.03-.65l-.43-.2-.51.23-.88.39.17-.94.12-.64-.47-.46C6.33 13.88 6 12.97 6 12c0-3.31 3.13-6 7-6s7 2.69 7 6-3.13 6-7 6z"/>
+      <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 
+      1.1.9 2 2 2h4l4 4 4-4h4c1.1 
+      0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 
+      12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
     </svg>
   `;
-    document.body.appendChild(launcher);
+  document.body.appendChild(launcher);
 
-    // --- Toggle Logic ---
-    launcher.addEventListener("click", () => {
-        const isOpen = iframe.style.display === "block";
-        iframe.style.display = isOpen ? "none" : "block";
-    });
+  // --- Toggle Logic ---
+  launcher.addEventListener("click", () => {
+    const isOpen = iframe.style.display === "block";
+    iframe.style.display = isOpen ? "none" : "block";
+  });
+
+  // ✅ Close when iframe sends CLOSE_WIDGET
+  window.addEventListener("message", (event) => {
+    if (event.data?.type === "CLOSE_WIDGET") {
+      iframe.style.display = "none";
+    }
+  });
 })();
