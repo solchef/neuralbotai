@@ -616,6 +616,7 @@ import {
   Target,
   Sparkles,
   ChevronDown,
+  Settings,
 } from "lucide-react"
 
 export default function HomePage() {
@@ -714,48 +715,37 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="relative max-w-6xl mx-auto">
-              <div className="grid md:grid-cols-3 gap-8 items-center justify-center">
-                <div className="isometric-container">
-                  <Card className="isometric-card border-border glow-card bg-card/50 backdrop-blur-sm">
-                    <CardContent className="p-8 text-center">
-                      <div className="bg-primary/20 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                        <MessageSquare className="h-8 w-8 text-primary" />
-                      </div>
-                      <h3 className="font-semibold mb-2">Smart Conversations</h3>
-                      <p className="text-sm text-muted-foreground">AI-powered responses</p>
-                    </CardContent>
-                  </Card>
-                </div>
-                <div className="isometric-container">
-                  <Card className="isometric-card border-border glow-card bg-card/50 backdrop-blur-sm">
-                    <CardContent className="p-8 text-center">
-                      <div className="bg-primary/20 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                        <Network className="h-8 w-8 text-primary" />
-                      </div>
-                      <h3 className="font-semibold mb-2">Multi-Platform</h3>
-                      <p className="text-sm text-muted-foreground">Deploy everywhere</p>
-                    </CardContent>
-                  </Card>
-                </div>
-                <div className="isometric-container">
-                  <Card className="isometric-card border-border glow-card bg-card/50 backdrop-blur-sm">
-                    <CardContent className="p-8 text-center">
-                      <div className="bg-primary/20 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                        <BarChart3 className="h-8 w-8 text-primary" />
-                      </div>
-                      <h3 className="font-semibold mb-2">Analytics</h3>
-                      <p className="text-sm text-muted-foreground">Real-time insights</p>
-                    </CardContent>
-                  </Card>
-                </div>
+              <div className="grid md:grid-cols-4 gap-6 items-center justify-center">
+                {[
+                  { icon: <MessageSquare className="h-8 w-8 text-green-400" />, title: "Smart Conversations", desc: "AI-powered responses" },
+                  { icon: <Network className="h-8 w-8 text-green-400" />, title: "Multi-Platform", desc: "Deploy everywhere" },
+                  { icon: <BarChart3 className="h-8 w-8 text-green-400" />, title: "Analytics", desc: "Real-time insights" },
+                  // { icon: <Shield className="h-8 w-8 text-green-400" />, title: "Security", desc: "Enterprise-grade protection" },
+                  // { icon: <Zap className="h-8 w-8 text-green-400" />, title: "Fast Performance", desc: "Lightning quick" },
+                  { icon: <Settings className="h-8 w-8 text-green-400" />, title: "Customizable", desc: "Fully adaptable" },
+                ].map((item, idx) => (
+                  <div key={idx} className="isometric-container">
+                    <Card className="isometric-card border-border glow-card bg-card/50 backdrop-blur-sm">
+                      <CardContent className="p-8 text-center">
+                        <div className="bg-primary/20 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                          {item.icon}
+                        </div>
+                        <h3 className="font-semibold mb-2">{item.title}</h3>
+                        <p className="text-sm text-muted-foreground">{item.desc}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+
               </div>
             </div>
             {/* Animated scroll indicator */}
-            <div className="flex justify-center">
+            {/* <div className="flex justify-center">
               <div className="animate-bounce">
                 <ChevronDown className="h-8 w-8 text-primary" />
               </div>
-            </div>
+            </div> */}
+
           </div>
         </div>
       </section>

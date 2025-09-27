@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MessageSquare, Send, Bot, User, RotateCcw, Download, Clock, ThumbsUp, ThumbsDown, Zap } from "lucide-react"
@@ -28,84 +27,46 @@ export default function TestBotPage() {
     {
       id: "1",
       sender: "bot",
-      content: "Hello! I'm Neural Assistant. How can I help you today?",
+      content: "👨‍💻 Hi there! I’m Sentseven assistant. How can I help you today?",
       timestamp: new Date(),
       confidence: 1.0,
-      responseTime: 0.8,
+      responseTime: 0.5,
     },
   ])
   const [inputMessage, setInputMessage] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [testScenario, setTestScenario] = useState("general")
+  const [streamingBotMessage, setStreamingBotMessage] = useState("")
+
+  // Ref to the scrollable container (a plain div with overflow-y)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Test scenarios
   const testScenarios = {
     general: ["What services do you offer?", "How can I contact support?", "What are your business hours?"],
-    technical: [
-      "How do I integrate the API?",
-      "What programming languages do you support?",
-      "Can you help with troubleshooting?",
-    ],
     billing: ["What are your pricing plans?", "How do I upgrade my account?", "Can I get a refund?"],
-    edge: ["Tell me a joke", "What's the weather like?", "Can you help me with something unrelated?"],
   }
 
   const stats = {
     totalMessages: messages.length,
     avgResponseTime:
       messages.filter((m) => m.sender === "bot" && m.responseTime).reduce((acc, m) => acc + (m.responseTime || 0), 0) /
-        messages.filter((m) => m.sender === "bot" && m.responseTime).length || 0,
+      (messages.filter((m) => m.sender === "bot" && m.responseTime).length || 1),
     avgConfidence:
       messages.filter((m) => m.sender === "bot" && m.confidence).reduce((acc, m) => acc + (m.confidence || 0), 0) /
-        messages.filter((m) => m.sender === "bot" && m.confidence).length || 0,
+      (messages.filter((m) => m.sender === "bot" && m.confidence).length || 1),
     successRate: 0.94,
   }
 
+  // Auto-scroll: whenever messages or streamingBotMessage changes, scroll to bottom
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
-    }
-  }, [messages])
-
-  const simulateBotResponse = async (userMessage: string): Promise<Message> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 2000))
-
-    // Mock responses based on keywords
-    let response = "I understand your question. Let me help you with that."
-    let confidence = 0.8
-
-    if (userMessage.toLowerCase().includes("pricing") || userMessage.toLowerCase().includes("cost")) {
-      response =
-        "Our pricing starts at $29/month for the Basic plan, $99/month for Pro, and we offer custom Enterprise solutions. Would you like to know more about any specific plan?"
-      confidence = 0.95
-    } else if (userMessage.toLowerCase().includes("support") || userMessage.toLowerCase().includes("help")) {
-      response =
-        "You can reach our support team 24/7 through live chat, email at support@neural.ai, or by calling 1-800-NEURAL. How can I assist you right now?"
-      confidence = 0.92
-    } else if (userMessage.toLowerCase().includes("api") || userMessage.toLowerCase().includes("integration")) {
-      response =
-        "Our API is RESTful and supports multiple programming languages. You can find detailed documentation at docs.neural.ai. Would you like me to guide you through the integration process?"
-      confidence = 0.88
-    } else if (userMessage.toLowerCase().includes("joke")) {
-      response = "Why don't AI assistants ever get tired? Because they run on cloud computing! ☁️"
-      confidence = 0.6
-    } else if (userMessage.toLowerCase().includes("weather")) {
-      response =
-        "I don't have access to real-time weather data, but I'd be happy to help you with questions about Neural.ai's services instead!"
-      confidence = 0.4
-    }
-
-    return {
-      id: Date.now().toString(),
-      sender: "bot",
-      content: response,
-      timestamp: new Date(),
-      confidence: confidence,
-      responseTime: 1 + Math.random() * 2,
-    }
-  }
+    const el = scrollAreaRef.current
+    if (!el) return
+    // use requestAnimationFrame so layout updates first
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+  }, [messages, streamingBotMessage])
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return
@@ -117,18 +78,64 @@ export default function TestBotPage() {
       timestamp: new Date(),
     }
 
+    // Build convo to send (avoid stale messages)
+    const convo = [...messages, userMessage]
+
+    // Append user's message locally
     setMessages((prev) => [...prev, userMessage])
     setInputMessage("")
     setIsTyping(true)
+    setStreamingBotMessage("")
+
+    const startTime = performance.now()
 
     try {
-      const botResponse = await simulateBotResponse(inputMessage)
-      setMessages((prev) => [...prev, botResponse])
+      const res = await fetch(`/api/sites/${siteId}/chat/retrieval`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: convo.map((m) => ({
+            role: m.sender === "user" ? "user" : "assistant",
+            content: m.content,
+          })),
+          siteId,
+        }),
+      })
+
+      if (!res.body) throw new Error("No response from server")
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let botText = ""
+
+      // Stream chunks, update streamingBotMessage so the UI shows incremental text
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value)
+        botText += chunk
+        setStreamingBotMessage(botText)
+      }
+
+      const endTime = performance.now()
+      const responseTime = (endTime - startTime) / 1000
+
+      const botMessage: Message = {
+        id: Date.now().toString(),
+        sender: "bot",
+        content: botText.trim() || "❌ Error: Empty response",
+        timestamp: new Date(),
+        confidence: typeof (botText) === "string" ? Math.random() * 0.2 + 0.8 : 0.8, // placeholder if API doesn't include confidence
+        responseTime,
+      }
+
+      setMessages((prev) => [...prev, botMessage])
     } catch (error) {
+      console.error("Bot API error:", error)
       const errorMessage: Message = {
         id: Date.now().toString(),
         sender: "bot",
-        content: "I'm sorry, I encountered an error. Please try again.",
+        content: "❌ Error: Could not get response",
         timestamp: new Date(),
         confidence: 0.0,
         responseTime: 0,
@@ -136,6 +143,7 @@ export default function TestBotPage() {
       setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsTyping(false)
+      setStreamingBotMessage("")
     }
   }
 
@@ -148,10 +156,10 @@ export default function TestBotPage() {
       {
         id: "1",
         sender: "bot",
-        content: "Hello! I'm Neural Assistant. How can I help you today?",
+        content: "👨‍💻 Hi there! I’m Sentseven assistant. How can I help you today?",
         timestamp: new Date(),
         confidence: 1.0,
-        responseTime: 0.8,
+        responseTime: 0.5,
       },
     ])
   }
@@ -196,14 +204,14 @@ export default function TestBotPage() {
               </CardTitle>
               <CardDescription>Test your chatbot in real-time</CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col p-0">
-              <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+
+            {/* make the content a column that fills the card and hides overflow */}
+            <CardContent className="flex flex-col flex-1 p-0 overflow-hidden">
+              {/* scrollable container: flex-1 and overflow-y-auto so input stays pinned */}
+              <div ref={scrollAreaRef} className="flex-1 p-4 overflow-y-auto">
                 <div className="space-y-4">
                   {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"}`}
-                    >
+                    <div key={message.id} className={`flex gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
                       {message.sender === "bot" && (
                         <Avatar className="h-8 w-8">
                           <AvatarFallback>
@@ -212,20 +220,19 @@ export default function TestBotPage() {
                         </Avatar>
                       )}
                       <div
-                        className={`max-w-[80%] p-3 rounded-lg ${
-                          message.sender === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
-                        }`}
+                        className={`max-w-[80%] p-3 rounded-lg ${message.sender === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
+                          }`}
                       >
-                        <p className="text-sm">{message.content}</p>
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                         <div className="flex items-center gap-2 mt-2 text-xs opacity-70">
                           <span>{message.timestamp.toLocaleTimeString()}</span>
-                          {message.sender === "bot" && message.confidence && (
+                          {message.sender === "bot" && message.confidence !== undefined && (
                             <>
                               <span>•</span>
                               <span>Confidence: {Math.round(message.confidence * 100)}%</span>
                             </>
                           )}
-                          {message.sender === "bot" && message.responseTime && (
+                          {message.sender === "bot" && message.responseTime !== undefined && (
                             <>
                               <span>•</span>
                               <span>{message.responseTime.toFixed(1)}s</span>
@@ -242,7 +249,21 @@ export default function TestBotPage() {
                       )}
                     </div>
                   ))}
-                  {isTyping && (
+
+                  {/* Streaming message (live text while reading) */}
+                  {isTyping && streamingBotMessage && (
+                    <div className="flex gap-3 justify-start">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>
+                          <Bot className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="bg-muted p-3 rounded-lg text-sm whitespace-pre-wrap">{streamingBotMessage}</div>
+                    </div>
+                  )}
+
+                  {/* Typing dots fallback */}
+                  {isTyping && !streamingBotMessage && (
                     <div className="flex gap-3 justify-start">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback>
@@ -259,14 +280,16 @@ export default function TestBotPage() {
                     </div>
                   )}
                 </div>
-              </ScrollArea>
-              <div className="border-t p-4">
+              </div>
+
+              {/* Input pinned at bottom */}
+              <div className="border-t p-4 bg-background">
                 <div className="flex gap-2">
                   <Input
                     placeholder="Type your message..."
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                    onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                     disabled={isTyping}
                   />
                   <Button onClick={handleSendMessage} disabled={isTyping || !inputMessage.trim()}>
@@ -289,12 +312,9 @@ export default function TestBotPage() {
               <Tabs value={testScenario} onValueChange={setTestScenario} className="space-y-4">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="general">General</TabsTrigger>
-                  <TabsTrigger value="technical">Technical</TabsTrigger>
-                </TabsList>
-                <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="billing">Billing</TabsTrigger>
-                  <TabsTrigger value="edge">Edge Cases</TabsTrigger>
                 </TabsList>
+
 
                 {Object.entries(testScenarios).map(([key, questions]) => (
                   <TabsContent key={key} value={key} className="space-y-2">

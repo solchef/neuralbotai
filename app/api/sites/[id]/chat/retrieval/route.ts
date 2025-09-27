@@ -231,24 +231,26 @@ Question: {question}`;
 const condenseQuestionPrompt = PromptTemplate.fromTemplate(CONDENSE_QUESTION_TEMPLATE);
 const answerPrompt = PromptTemplate.fromTemplate(ANSWER_TEMPLATE);
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest, { params }: { params: { siteId: string } }) {
   try {
     const body = await req.json();
+    const { siteId } = params  // 👈 grab
+
+    // console.log(body)
     const messages = body.messages ?? [];
     const previousMessages = messages.slice(0, -1);
     const currentMessageContent = messages[messages.length - 1].content;
-
     const model = new ChatOpenAI({
       model: "gpt-4o-mini",
       temperature: 0.2,
-      maxCompletionTokens: 150, // concise answers
+      maxCompletionTokens: 100, // concise answers
     });
 
-    const client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PRIVATE_KEY!);
+    const client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 
     const vectorstore = new SupabaseVectorStore(new OpenAIEmbeddings(), {
       client,
-      tableName: "documents",
+      tableName: "vectors",
       queryName: "match_documents",
     });
 
@@ -312,14 +314,19 @@ export async function POST(req: NextRequest) {
     const answeredConfidently = documents.length > 0 && !botText.toLowerCase().includes("beyond the given data");
 
     // Save conversation for future retraining/review
-    await client.from("conversations").insert([
+    await client.from("chat_logs").insert([
       {
+        site_id: siteId, // replace with actual site UUID
+        session_id: body.session_id ?? crypto.randomUUID(), // or however you track sessions
         user_message: currentMessageContent,
         bot_response: botText,
+        response_time_ms: 1200, // measure duration of request/response
+        tokens_used: 300, // if you track OpenAI token usage
         success: answeredConfidently,
         metadata: { sources: documents.map((d) => d.metadata) },
       },
     ]);
+
 
     return new StreamingTextResponse(new ReadableStream({
       async start(controller) {
