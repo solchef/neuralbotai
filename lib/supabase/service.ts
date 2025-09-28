@@ -504,8 +504,43 @@ export const SupabaseService = {
             .single()
 
         if (error) throw error
-        return mapTuningFromDB(data)
+        return mapTuningFromDb(data)
     },
+
+    async logChat(siteId: string, sessionId: string, role: string, content: string) {
+        const { data, error } = await supabase
+            .from("chat_logs")
+            .insert([{ site_id: siteId, session_id: sessionId, role, content }])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Fetch full conversation for a session
+    async fetchSiteChatLogs(siteId: string) {
+        const { data, error } = await supabase
+            .from("chat_logs")
+            .select("*")
+            .eq("site_id", siteId)
+            .order("created_at", { ascending: true });
+        // console.log(data, error)
+        if (error) throw error;
+        return data;
+    },
+
+    // Fetch full conversation for a session
+    async fetchSessionChatLogs(sessionId: string) {
+        const { data, error } = await supabase
+            .from("chat_logs")
+            .select("*")
+            .eq("session_id", sessionId)
+            .order("created_at", { ascending: true });
+
+        if (error) throw error;
+        return data;
+    }
 
 
 }

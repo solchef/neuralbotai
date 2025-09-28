@@ -73,11 +73,28 @@ export default function WidgetPage() {
             setDots(".".repeat(dotIndex));
         }, 500);
 
+
         try {
-            const res = await fetch("/api/chat/retrieval", {
+            // Retrieve siteId and token from script tag
+            const siteId = new URLSearchParams(window.location.search).get("site-id");
+            const token = new URLSearchParams(window.location.search).get("token");
+
+            // console.log(siteId, token)
+
+            if (!siteId || !token) throw new Error("Missing siteId or token in <script>");
+
+            // 🔹 Generate or fetch sessionId from localStorage
+            let sessionId = localStorage.getItem("neural-bot-session-id");
+            if (!sessionId) {
+                sessionId = crypto.randomUUID();
+                localStorage.setItem("neural-bot-session-id", sessionId);
+            }
+            // console.log(siteId, token, sessionId);
+            const res = await fetch(`/api/sites/${siteId}/chat/retrieval`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    sessionId,
                     messages: [...messages, userMessage].map((m) => ({
                         role: m.from === "user" ? "user" : "assistant",
                         content: m.text,

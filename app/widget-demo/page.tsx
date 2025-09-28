@@ -118,12 +118,17 @@ export default function WidgetDemoPage() {
         </div>
       </div>
       {/* ✅ Proper Script loader */}
-      <Script
-        src="/chat-bot-widget.js"
-        data-site-id="demo-site-id"
-        data-token="demo-token"
-        strategy="afterInteractive"
-      />
+      <>
+        <div
+          id="chatbot-container"
+          data-site-id="fa509656-dfd6-4b35-a0c9-4545e07970a9"
+          data-token="secure-token-here"
+        />
+        <Script
+          src="http://localhost:3000/chat-bot-widget.js"
+          strategy="afterInteractive"
+        />
+      </>
     </div>
   )
 }

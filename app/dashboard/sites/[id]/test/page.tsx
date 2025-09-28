@@ -362,7 +362,7 @@ export default function TestBotPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          {/* <Card>
             <CardHeader>
               <CardTitle>Test Results</CardTitle>
             </CardHeader>
@@ -382,7 +382,7 @@ export default function TestBotPage() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
       </div>
     </div>

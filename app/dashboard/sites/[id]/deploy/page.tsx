@@ -12,8 +12,9 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Copy, ExternalLink, Code, Globe, Smartphone, Monitor, Eye, Settings, CheckCircle } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import React from "react"
 
-export default function DeployPage({ params }: { params: { id: string } }) {
+export default function DeployPage({ params }: { params: Promise<{ id: string }> }) {
   const [copied, setCopied] = useState<string | null>(null)
   const [deploymentSettings, setDeploymentSettings] = useState({
     position: "bottom-right",
@@ -26,32 +27,28 @@ export default function DeployPage({ params }: { params: { id: string } }) {
     mobileOptimized: true,
   })
 
-  const siteId = params.id
+  const { id: siteId } = React.use(params)
+
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://neural-ai.vercel.app"
 
-  const directLink = `${baseUrl}/chat/${siteId}`
-  const scriptCode = `<script>
-  (function() {
-    var script = document.createElement('script');
-    script.src = '${baseUrl}/widget.js';
-    script.setAttribute('data-site-id', '${siteId}');
-    script.setAttribute('data-position', '${deploymentSettings.position}');
-    script.setAttribute('data-theme', '${deploymentSettings.theme}');
-    script.setAttribute('data-auto-open', '${deploymentSettings.autoOpen}');
-    script.setAttribute('data-welcome-message', '${deploymentSettings.welcomeMessage}');
-    script.setAttribute('data-mobile-optimized', '${deploymentSettings.mobileOptimized}');
-    document.head.appendChild(script);
-  })();
-</script>`
+  const directLink = `${baseUrl}/widget?site-id=${siteId}&token=4545e07970a9`
+  const scriptCode = `
+  <script src="http://localhost:3000/chat-bot-widget.js" 
+          data-site-id="fa509656-dfd6-4b35-a0c9-4545e07970a9"
+          data-token="a0c9-4545e07970a9" defer>
+  </script>
+  `
 
-  const iframeCode = `<iframe
-  src="${baseUrl}/embed/${siteId}"
-  width="400"
-  height="600"
-  frameborder="0"
-  style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"
-  title="Neural AI Chatbot">
-</iframe>`
+  const iframeCode = `
+  <iframe
+    src="${baseUrl}/widget?site-id=${siteId}&token=4545e07970a9"
+    width="400"
+    height="600"
+    frameborder="0"
+    style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"
+    title="Neural AI Chatbot">
+  </iframe>
+  `
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text)
@@ -322,7 +319,7 @@ export default function DeployPage({ params }: { params: { id: string } }) {
       </div>
 
       {/* Preview Section */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Eye className="h-5 w-5" />
@@ -367,7 +364,7 @@ export default function DeployPage({ params }: { params: { id: string } }) {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   )
 }

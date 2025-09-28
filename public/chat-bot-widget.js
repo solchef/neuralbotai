@@ -2,7 +2,23 @@
   if (window.__SENTSEVEN_WIDGET__) return;
   window.__SENTSEVEN_WIDGET__ = true;
 
-  const baseUrl = "http://localhost:3000"; // remove trailing slash
+  const baseUrl = "http://localhost:3000";
+
+  let siteId = null;
+  let token = null;
+
+  if (document.currentScript) {
+    const scriptEl = document.currentScript;
+    siteId = scriptEl.dataset.siteId;
+    token = scriptEl.dataset.token;
+  } else {
+    const container = document.getElementById("chatbot-container");
+    siteId = container?.getAttribute("data-site-id") ?? undefined;
+    token = container?.getAttribute("data-token") ?? undefined;
+  }
+
+  // console.log("Loaded siteId:", siteId, "token:", token);
+
 
   // --- Styles ---
   const style = document.createElement("style");
@@ -70,7 +86,7 @@
   // --- Iframe ---
   const iframe = document.createElement("iframe");
   iframe.id = "sentseven-chat-iframe";
-  iframe.src = `${baseUrl}/widget`; // points to your Next.js WidgetPage
+  iframe.src = `${baseUrl}/widget?site-id=${siteId}&token=${token}`;
   document.body.appendChild(iframe);
 
   // --- Launcher ---

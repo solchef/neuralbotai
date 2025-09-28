@@ -231,19 +231,18 @@ Question: {question}`;
 const condenseQuestionPrompt = PromptTemplate.fromTemplate(CONDENSE_QUESTION_TEMPLATE);
 const answerPrompt = PromptTemplate.fromTemplate(ANSWER_TEMPLATE);
 
-export async function POST(req: NextRequest, { params }: { params: { siteId: string } }) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await req.json();
-    const { siteId } = params  // 👈 grab
+    const { id: siteId } = params
 
-    // console.log(body)
     const messages = body.messages ?? [];
     const previousMessages = messages.slice(0, -1);
     const currentMessageContent = messages[messages.length - 1].content;
     const model = new ChatOpenAI({
       model: "gpt-4o-mini",
       temperature: 0.2,
-      maxCompletionTokens: 100, // concise answers
+      maxCompletionTokens: 100,
     });
 
     const client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
@@ -254,7 +253,6 @@ export async function POST(req: NextRequest, { params }: { params: { siteId: str
       queryName: "match_documents",
     });
 
-    // Standalone question chain
     const standaloneQuestionChain = RunnableSequence.from([condenseQuestionPrompt, model, new StringOutputParser()]);
 
     let resolveWithDocuments: (value: Document[]) => void;
@@ -291,7 +289,6 @@ export async function POST(req: NextRequest, { params }: { params: { siteId: str
 
     const documents = await documentPromise;
 
-    // Convert sources to base64 for UI headers
     const serializedSources = Buffer.from(
       JSON.stringify(documents.map((doc) => ({
         pageContent: doc.pageContent.slice(0, 50) + "...",
@@ -299,7 +296,6 @@ export async function POST(req: NextRequest, { params }: { params: { siteId: str
       })))
     ).toString("base64");
 
-    // Collect final text from stream
     let botText = "";
     const reader = stream.getReader();
     const decoder = new TextDecoder();
@@ -310,22 +306,21 @@ export async function POST(req: NextRequest, { params }: { params: { siteId: str
       botText += decoder.decode(value);
     }
 
-    // Determine if answer was confident (based on context presence)
     const answeredConfidently = documents.length > 0 && !botText.toLowerCase().includes("beyond the given data");
 
-    // Save conversation for future retraining/review
     await client.from("chat_logs").insert([
       {
-        site_id: siteId, // replace with actual site UUID
-        session_id: body.session_id ?? crypto.randomUUID(), // or however you track sessions
+        site_id: siteId,
+        session_id: body.sessionId,
         user_message: currentMessageContent,
         bot_response: botText,
-        response_time_ms: 1200, // measure duration of request/response
-        tokens_used: 300, // if you track OpenAI token usage
+        response_time_ms: 1200,
+        tokens_used: 300,
         success: answeredConfidently,
         metadata: { sources: documents.map((d) => d.metadata) },
       },
     ]);
+
 
 
     return new StreamingTextResponse(new ReadableStream({
