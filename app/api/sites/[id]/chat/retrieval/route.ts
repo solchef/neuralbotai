@@ -231,21 +231,180 @@ Question: {question}`;
 const condenseQuestionPrompt = PromptTemplate.fromTemplate(CONDENSE_QUESTION_TEMPLATE);
 const answerPrompt = PromptTemplate.fromTemplate(ANSWER_TEMPLATE);
 
+// export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+//   try {
+//     const body = await req.json();
+//     const { id: siteId } = params
+
+//     const messages = body.messages ?? [];
+//     const previousMessages = messages.slice(0, -1);
+//     const currentMessageContent = messages[messages.length - 1].content;
+//     const model = new ChatOpenAI({
+//       model: "gpt-4o-mini",
+//       temperature: 0.2,
+//       maxCompletionTokens: 100,
+//     });
+
+//     const client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
+
+//     const vectorstore = new SupabaseVectorStore(new OpenAIEmbeddings(), {
+//       client,
+//       tableName: "vectors",
+//       queryName: "match_documents",
+//     });
+
+//     const standaloneQuestionChain = RunnableSequence.from([condenseQuestionPrompt, model, new StringOutputParser()]);
+
+//     let resolveWithDocuments: (value: Document[]) => void;
+//     const documentPromise = new Promise<Document[]>((resolve) => {
+//       resolveWithDocuments = resolve;
+//     });
+
+//     const retriever = vectorstore.asRetriever({
+//       callbacks: [{ handleRetrieverEnd(documents) { resolveWithDocuments(documents); } }],
+//     });
+
+//     const retrievalChain = retriever.pipe(combineDocumentsFn);
+
+//     const answerChain = RunnableSequence.from([
+//       {
+//         context: RunnableSequence.from([(input) => input.question, retrievalChain]),
+//         chat_history: (input) => input.chat_history,
+//         question: (input) => input.question,
+//       },
+//       answerPrompt,
+//       model,
+//     ]);
+
+//     const conversationalRetrievalQAChain = RunnableSequence.from([
+//       { question: standaloneQuestionChain, chat_history: (input) => input.chat_history },
+//       answerChain,
+//       new BytesOutputParser(),
+//     ]);
+
+//     const stream = await conversationalRetrievalQAChain.stream({
+//       question: currentMessageContent,
+//       chat_history: formatVercelMessages(previousMessages),
+//     });
+
+//     const documents = await documentPromise;
+
+//     const serializedSources = Buffer.from(
+//       JSON.stringify(documents.map((doc) => ({
+//         pageContent: doc.pageContent.slice(0, 50) + "...",
+//         metadata: doc.metadata
+//       })))
+//     ).toString("base64");
+
+//     let botText = "";
+//     const reader = stream.getReader();
+//     const decoder = new TextDecoder();
+
+//     while (true) {
+//       const { value, done } = await reader.read();
+//       if (done) break;
+//       botText += decoder.decode(value);
+//     }
+
+//     const answeredConfidently = documents.length > 0 && !botText.toLowerCase().includes("beyond the given data");
+
+//     await client.from("chat_logs").insert([
+//       {
+//         site_id: siteId,
+//         session_id: body.sessionId,
+//         user_message: currentMessageContent,
+//         bot_response: botText,
+//         response_time_ms: 1200,
+//         tokens_used: 300,
+//         success: answeredConfidently,
+//         metadata: { sources: documents.map((d) => d.metadata) },
+//       },
+//     ]);
+
+
+
+//     return new StreamingTextResponse(new ReadableStream({
+//       async start(controller) {
+//         controller.enqueue(new TextEncoder().encode(botText));
+//         controller.close();
+//       }
+//     }), {
+//       headers: {
+//         "x-message-index": (previousMessages.length + 1).toString(),
+//         "x-sources": serializedSources,
+//       },
+//     });
+
+//   } catch (e: any) {
+//     console.error(e);
+//     return NextResponse.json({ error: e.message }, { status: e.status ?? 500 });
+//   }
+// }
+
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await req.json();
-    const { id: siteId } = params
+    const { id: siteId } = params;
 
-    const messages = body.messages ?? [];
+    const { sessionId, messages } = body;
+    if (!sessionId) throw new Error("Missing sessionId in body");
+
+    const client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
+
+    // 🔹 Ensure session exists in chat_sessions
+    const { data: existingSession, error: sessionCheckError } = await client
+      .from("chat_sessions")
+      .select("id")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (sessionCheckError) {
+      console.error("Supabase session check failed:", sessionCheckError);
+    }
+
+    if (!existingSession) {
+      const { error: createSessionError } = await client.from("chat_sessions").insert([
+        {
+          site_id: siteId,
+          session_id: sessionId,
+          started_at: new Date().toISOString(),
+        },
+      ]);
+
+      if (createSessionError) {
+        console.error("Supabase create session failed:", createSessionError);
+      }
+    }
+
+    // 🔹 Last message is from the user
+    const userMessage = messages[messages.length - 1];
     const previousMessages = messages.slice(0, -1);
-    const currentMessageContent = messages[messages.length - 1].content;
+
+    // 🔹 Log USER message
+    const { data: loggedUser, error: userError } = await client
+      .from("chat_logs")
+      .insert([
+        {
+          site_id: siteId,
+          session_id: sessionId,
+          role: "user",
+          message: userMessage.content,
+          metadata: { source: "api" },
+        },
+      ])
+      .select()
+      .single();
+
+    if (userError) {
+      console.error("Supabase insert (user) failed:", userError);
+    }
+
+    // 🔹 Generate BOT response
     const model = new ChatOpenAI({
       model: "gpt-4o-mini",
       temperature: 0.2,
-      maxCompletionTokens: 100,
+      maxCompletionTokens: 200,
     });
-
-    const client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 
     const vectorstore = new SupabaseVectorStore(new OpenAIEmbeddings(), {
       client,
@@ -253,7 +412,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       queryName: "match_documents",
     });
 
-    const standaloneQuestionChain = RunnableSequence.from([condenseQuestionPrompt, model, new StringOutputParser()]);
+    const standaloneQuestionChain = RunnableSequence.from([
+      condenseQuestionPrompt,
+      model,
+      new StringOutputParser(),
+    ]);
 
     let resolveWithDocuments: (value: Document[]) => void;
     const documentPromise = new Promise<Document[]>((resolve) => {
@@ -261,7 +424,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     });
 
     const retriever = vectorstore.asRetriever({
-      callbacks: [{ handleRetrieverEnd(documents) { resolveWithDocuments(documents); } }],
+      callbacks: [
+        {
+          handleRetrieverEnd(documents) {
+            resolveWithDocuments(documents);
+          },
+        },
+      ],
     });
 
     const retrievalChain = retriever.pipe(combineDocumentsFn);
@@ -283,22 +452,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     ]);
 
     const stream = await conversationalRetrievalQAChain.stream({
-      question: currentMessageContent,
+      question: userMessage.content,
       chat_history: formatVercelMessages(previousMessages),
     });
 
     const documents = await documentPromise;
 
-    const serializedSources = Buffer.from(
-      JSON.stringify(documents.map((doc) => ({
-        pageContent: doc.pageContent.slice(0, 50) + "...",
-        metadata: doc.metadata
-      })))
-    ).toString("base64");
+    const sources = documents.map((doc) => ({
+      pageContent: doc.pageContent.slice(0, 300),
+      metadata: doc.metadata,
+    }));
+
+    const answeredConfidently =
+      documents.length > 0 &&
+      !sources.some((s) => s.pageContent.toLowerCase().includes("beyond the given data"));
 
     let botText = "";
     const reader = stream.getReader();
     const decoder = new TextDecoder();
+    const startTime = performance.now();
 
     while (true) {
       const { value, done } = await reader.read();
@@ -306,37 +478,66 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       botText += decoder.decode(value);
     }
 
-    const answeredConfidently = documents.length > 0 && !botText.toLowerCase().includes("beyond the given data");
+    const responseTimeMs = Math.round(performance.now() - startTime);
 
-    await client.from("chat_logs").insert([
-      {
-        site_id: siteId,
-        session_id: body.sessionId,
-        user_message: currentMessageContent,
-        bot_response: botText,
-        response_time_ms: 1200,
-        tokens_used: 300,
-        success: answeredConfidently,
-        metadata: { sources: documents.map((d) => d.metadata) },
-      },
-    ]);
+    // 🔹 Log BOT message
+    const { data: loggedBot, error: botError } = await client
+      .from("chat_logs")
+      .insert([
+        {
+          site_id: siteId,
+          session_id: sessionId,
+          role: "bot",
+          message: botText,
+          response_time_ms: responseTimeMs,
+          metadata: {
+            sources,
+            answeredConfidently,
+            model: "gpt-4o-mini",
+          },
+        },
+      ])
+      .select()
+      .single();
 
+    if (botError) {
+      console.error("Supabase insert (bot) failed:", botError);
+    }
 
-
-    return new StreamingTextResponse(new ReadableStream({
-      async start(controller) {
-        controller.enqueue(new TextEncoder().encode(botText));
-        controller.close();
-      }
-    }), {
-      headers: {
-        "x-message-index": (previousMessages.length + 1).toString(),
-        "x-sources": serializedSources,
-      },
+    // 🔹 Update session stats & last_message_at
+    const { error: rpcError } = await client.rpc("update_session_stats", {
+      session_id_input: sessionId,
+      response_time_input: responseTimeMs,
     });
 
+    if (rpcError) {
+      console.error("Supabase RPC update_session_stats failed:", rpcError);
+    }
+
+    await client
+      .from("chat_sessions")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("session_id", sessionId);
+
+    // 🔹 Send bot response
+    return new StreamingTextResponse(
+      new ReadableStream({
+        async start(controller) {
+          controller.enqueue(new TextEncoder().encode(botText));
+          controller.close();
+        },
+      }),
+      {
+        headers: {
+          "x-message-index": (previousMessages.length + 2).toString(), // user+bot
+          "x-answered-confidently": answeredConfidently ? "true" : "false",
+        },
+      }
+    );
   } catch (e: any) {
     console.error(e);
     return NextResponse.json({ error: e.message }, { status: e.status ?? 500 });
   }
 }
+
+

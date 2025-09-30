@@ -6,6 +6,7 @@ import { redirect } from "next/navigation"
 import { Membership } from "../auth/types"
 import { Link, LinkStatus } from "@/store/useSiteLinksTrainingStore"
 import { ChatbotTuning } from "../types/chatBotConfig"
+import { getRangeDate } from "../utils"
 
 const supabase = createClient()
 
@@ -507,40 +508,227 @@ export const SupabaseService = {
         return mapTuningFromDb(data)
     },
 
-    async logChat(siteId: string, sessionId: string, role: string, content: string) {
+    async startSession(siteId: string, sessionId: string) {
         const { data, error } = await supabase
-            .from("chat_logs")
-            .insert([{ site_id: siteId, session_id: sessionId, role, content }])
+            .from("chat_sessions")
+            .insert([{ site_id: siteId, session_id: sessionId }])
             .select()
-            .single();
-
-        if (error) throw error;
-        return data;
+            .single()
+        if (error) throw error
+        return data
     },
 
-    // Fetch full conversation for a session
-    async fetchSiteChatLogs(siteId: string) {
+    async endSession(sessionId: string) {
         const { data, error } = await supabase
-            .from("chat_logs")
+            .from("chat_sessions")
+            .update({ ended_at: new Date().toISOString() })
+            .eq("session_id", sessionId)
+            .select()
+            .single()
+        if (error) throw error
+        return data
+    },
+
+    async fetchSessions(siteId: string) {
+        const { data, error } = await supabase
+            .from("chat_sessions")
             .select("*")
             .eq("site_id", siteId)
-            .order("created_at", { ascending: true });
-        // console.log(data, error)
-        if (error) throw error;
-        return data;
+            .order("started_at", { ascending: false })
+        if (error) throw error
+        return data
     },
 
-    // Fetch full conversation for a session
+    // ---------- CHAT LOGS ----------
+    async logChat(
+        siteId: string,
+        sessionId: string,
+        role: "user" | "bot",
+        message: string,
+        responseTimeMs?: number,
+        tokensUsed?: number
+    ) {
+        const { data, error } = await supabase
+            .from("chat_logs")
+            .insert([
+                {
+                    site_id: siteId,
+                    session_id: sessionId,
+                    role,
+                    message,
+                    response_time_ms: responseTimeMs,
+                    tokens_used: tokensUsed,
+                },
+            ])
+            .select()
+            .single()
+
+        if (error) throw error
+
+        // update session counters via RPC (total_messages, avg response time)
+        if (responseTimeMs) {
+            await supabase.rpc("update_session_stats", {
+                session_id_input: sessionId,
+                response_time_input: responseTimeMs,
+            })
+        }
+
+        return data
+    },
+
     async fetchSessionChatLogs(sessionId: string) {
         const { data, error } = await supabase
             .from("chat_logs")
             .select("*")
             .eq("session_id", sessionId)
-            .order("created_at", { ascending: true });
+            .order("created_at", { ascending: true })
+        if (error) throw error
+        return data
+    },
 
-        if (error) throw error;
-        return data;
-    }
+    async fetchLastSessionMessage(sessionId: string) {
+        const { data, error } = await supabase
+            .from("chat_logs")
+            .select("*")
+            .eq("session_id", sessionId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single()
+
+        if (error) throw error
+        return data
+    },
+
+
+    // ---------- FEEDBACK ----------
+    async logFeedback(
+        siteId: string,
+        sessionId: string,
+        messageId: string | null,
+        success: boolean | null,
+        rating?: number,
+        comment?: string
+    ) {
+        const { data, error } = await supabase
+            .from("chat_feedback")
+            .insert([
+                { site_id: siteId, session_id: sessionId, message_id: messageId, success, rating, comment },
+            ])
+            .select()
+            .single()
+        if (error) throw error
+        return data
+    },
+
+    async fetchFeedback(siteId: string) {
+        const { data, error } = await supabase
+            .from("chat_feedback")
+            .select("*")
+            .eq("site_id", siteId)
+            .order("created_at", { ascending: false })
+        if (error) throw error
+        return data
+    },
+
+    async fetchSessionFeedback(sessionId: string) {
+        const { data, error } = await supabase
+            .from("chat_feedback")
+            .select("rating, success")
+            .eq("session_id", sessionId)
+
+        if (error) throw error
+        return data
+    },
+
+
+    // ---------- ANALYTICS ----------
+    async fetchAnalytics(siteId: string, timeRange = "7d") {
+        const startDate = getRangeDate(timeRange)
+
+        // 1. Conversations per day
+        const { data: sessions, error: sessionErr } = await supabase
+            .from("chat_sessions")
+            .select("session_id, started_at, total_messages, avg_response_time_ms")
+            .eq("site_id", siteId)
+            .gte("started_at", startDate)
+        if (sessionErr) throw sessionErr
+
+        const convMap: Record<string, { conversations: number; messages: number }> = {}
+        sessions.forEach((s) => {
+            const date = s.started_at.split("T")[0]
+            if (!convMap[date]) convMap[date] = { conversations: 0, messages: 0 }
+            convMap[date].conversations++
+            convMap[date].messages += s.total_messages || 0
+        })
+
+        const conversationData = Object.entries(convMap).map(([date, val]) => ({
+            date,
+            conversations: val.conversations,
+            messages: val.messages,
+        }))
+
+        // 2. Overall stats
+        const totalConversations = sessions.length
+        const totalMessages = sessions.reduce((sum, s) => sum + (s.total_messages || 0), 0)
+        const avgResponseTime =
+            sessions.length > 0
+                ? sessions.reduce((sum, s) => sum + (s.avg_response_time_ms || 0), 0) / sessions.length
+                : 0
+
+        // 3. Satisfaction rate
+        const { data: feedback } = await supabase
+            .from("chat_feedback")
+            .select("success, created_at, comment")
+            .eq("site_id", siteId)
+            .gte("created_at", startDate)
+
+        const successCount = feedback?.filter((f) => f.success)?.length || 0
+        const satisfactionRate =
+            feedback && feedback.length > 0 ? Math.round((successCount / feedback.length) * 100) : 0
+
+        // 4. Top Questions (user messages only)
+        const { data: logs } = await supabase
+            .from("chat_logs")
+            .select("message")
+            .eq("site_id", siteId)
+            .eq("role", "user")
+            .gte("created_at", startDate)
+
+        const questionCount: Record<string, number> = {}
+        logs?.forEach((l) => {
+            const text = l.message.trim()
+            questionCount[text] = (questionCount[text] || 0) + 1
+        })
+
+        const topQuestions = Object.entries(questionCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([text, count]) => ({ text, count }))
+
+        // 5. Recent Feedback
+        const recentFeedback = feedback
+            ?.filter((f) => f.success !== null)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 5)
+            .map((f) => ({
+                feedback: f.success,
+                created_at: f.created_at,
+                text: f.comment,
+            }))
+
+        return {
+            conversationData,
+            totals: {
+                totalConversations,
+                totalMessages,
+                avgResponseTime,
+                satisfactionRate,
+            },
+            topQuestions,
+            recentFeedback,
+        }
+    },
+
 
 
 }

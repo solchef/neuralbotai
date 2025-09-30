@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
+import { useChatStore } from "@/store/useChatStore";
 
 export default function WidgetPage() {
     const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([
@@ -14,6 +15,7 @@ export default function WidgetPage() {
     const [currentBotMessage, setCurrentBotMessage] = useState("");
     const [dots, setDots] = useState("");
     const [menuOpen, setMenuOpen] = useState(false);
+    const { logMessage } = useChatStore()
 
     // Dark mode detection
     useEffect(() => {
@@ -57,6 +59,30 @@ export default function WidgetPage() {
         URL.revokeObjectURL(url);
     };
 
+    function getOrCreateSessionId(): string {
+        const SESSION_TIMEOUT_MINUTES = 30;
+        const now = Date.now();
+
+        const stored = localStorage.getItem("neural-bot-session");
+        if (stored) {
+            const { sessionId, createdAt } = JSON.parse(stored);
+            const ageMinutes = (now - createdAt) / 1000 / 60;
+
+            if (ageMinutes < SESSION_TIMEOUT_MINUTES) {
+                return sessionId; // still valid
+            }
+        }
+
+        // expired or not found → create new session
+        const newSessionId = crypto.randomUUID();
+        localStorage.setItem(
+            "neural-bot-session",
+            JSON.stringify({ sessionId: newSessionId, createdAt: now })
+        );
+        return newSessionId;
+    }
+
+
     const sendMessage = async () => {
         if (!input.trim()) return;
 
@@ -83,12 +109,8 @@ export default function WidgetPage() {
 
             if (!siteId || !token) throw new Error("Missing siteId or token in <script>");
 
-            // 🔹 Generate or fetch sessionId from localStorage
-            let sessionId = localStorage.getItem("neural-bot-session-id");
-            if (!sessionId) {
-                sessionId = crypto.randomUUID();
-                localStorage.setItem("neural-bot-session-id", sessionId);
-            }
+            // 🔹 always resolve session with expiry check
+            const sessionId = getOrCreateSessionId();
             // console.log(siteId, token, sessionId);
             const res = await fetch(`/api/sites/${siteId}/chat/retrieval`, {
                 method: "POST",
