@@ -45,7 +45,7 @@ export async function getCurrentTenant() {
   if (!membership) {
     redirect("/onboarding")
   }
-  console.log(membership)
+  // console.log(membership)
   return {
     id: membership.tenant_id,
     name: membership.tenants.name,

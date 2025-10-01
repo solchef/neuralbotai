@@ -7,106 +7,22 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Check, CreditCard, Download, Zap } from "lucide-react"
+import { useBillingStore } from "@/store/useBillingStore"
 
-const plans = [
-  {
-    name: "Starter",
-    price: 29,
-    interval: "month",
-    description: "Perfect for small businesses getting started",
-    features: [
-      "1 chatbot site",
-      "1,000 conversations/month",
-      "Basic analytics",
-      "Email support",
-      "Standard response time",
-    ],
-    limits: {
-      sites: 1,
-      conversations: 1000,
-      teamMembers: 2,
-    },
-  },
-  {
-    name: "Professional",
-    price: 99,
-    interval: "month",
-    description: "Ideal for growing businesses",
-    features: [
-      "5 chatbot sites",
-      "10,000 conversations/month",
-      "Advanced analytics",
-      "Priority support",
-      "Custom branding",
-      "API access",
-    ],
-    limits: {
-      sites: 5,
-      conversations: 10000,
-      teamMembers: 10,
-    },
-    popular: true,
-  },
-  {
-    name: "Enterprise",
-    price: 299,
-    interval: "month",
-    description: "For large organizations with advanced needs",
-    features: [
-      "Unlimited chatbot sites",
-      "100,000 conversations/month",
-      "Advanced analytics & insights",
-      "24/7 priority support",
-      "White-label solution",
-      "Custom integrations",
-      "Dedicated account manager",
-    ],
-    limits: {
-      sites: -1, // unlimited
-      conversations: 100000,
-      teamMembers: -1, // unlimited
-    },
-  },
-]
 
 export default function BillingPage() {
-  const [currentPlan, setCurrentPlan] = useState<any>(null)
-  const [usage, setUsage] = useState<any>(null)
-  const [invoices, setInvoices] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  // const [currentPlan, setCurrentPlan] = useState<any>(null)
+  // const [usage, setUsage] = useState<any>(null)
+  // const [invoices, setInvoices] = useState<any[]>([])
+  // const [loading, setLoading] = useState(true)
+
+  const { currentPlan, usage, invoices, plans, loading, fetchPlans, fetchBillingData } = useBillingStore()
 
   useEffect(() => {
-    fetchBillingData()
-  }, [])
+    fetchBillingData("0152e3e7-2029-4b43-82b9-422dab661c10")
+    fetchPlans()
+  }, [fetchBillingData, fetchPlans])
 
-  const fetchBillingData = async () => {
-    try {
-      const [planResponse, usageResponse, invoicesResponse] = await Promise.all([
-        fetch("/api/billing/subscription"),
-        fetch("/api/billing/usage"),
-        fetch("/api/billing/invoices"),
-      ])
-
-      if (planResponse.ok) {
-        const planData = await planResponse.json()
-        setCurrentPlan(planData)
-      }
-
-      if (usageResponse.ok) {
-        const usageData = await usageResponse.json()
-        setUsage(usageData)
-      }
-
-      if (invoicesResponse.ok) {
-        const invoicesData = await invoicesResponse.json()
-        setInvoices(invoicesData.invoices || [])
-      }
-    } catch (error) {
-      console.error("Failed to fetch billing data:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleUpgrade = async (planName: string) => {
     try {
@@ -234,15 +150,15 @@ export default function BillingPage() {
                   <div className="flex justify-between text-sm mb-2">
                     <span>Conversations</span>
                     <span>
-                      {usage.conversations.used.toLocaleString()} /{" "}
-                      {usage.conversations.limit === -1 ? "Unlimited" : usage.conversations.limit.toLocaleString()}
+                      {usage?.conversations?.used.toLocaleString()} /{" "}
+                      {usage?.conversations?.limit === -1 ? "Unlimited" : usage?.conversations?.limit.toLocaleString()}
                     </span>
                   </div>
                   <Progress
                     value={
-                      usage.conversations.limit === -1
+                      usage?.conversations?.limit === -1
                         ? 0
-                        : (usage.conversations.used / usage.conversations.limit) * 100
+                        : (usage?.conversations?.used / usage?.conversations?.limit) * 100
                     }
                     className="h-2"
                   />
@@ -251,11 +167,11 @@ export default function BillingPage() {
                   <div className="flex justify-between text-sm mb-2">
                     <span>Active Sites</span>
                     <span>
-                      {usage.sites.used} / {usage.sites.limit === -1 ? "Unlimited" : usage.sites.limit}
+                      {usage?.sites?.used} / {usage?.sites?.limit === -1 ? "Unlimited" : usage?.sites?.limit}
                     </span>
                   </div>
                   <Progress
-                    value={usage.sites.limit === -1 ? 0 : (usage.sites.used / usage.sites.limit) * 100}
+                    value={usage?.sites?.limit === -1 ? 0 : (usage?.sites?.used / usage?.sites?.limit) * 100}
                     className="h-2"
                   />
                 </div>
@@ -263,13 +179,13 @@ export default function BillingPage() {
                   <div className="flex justify-between text-sm mb-2">
                     <span>Team Members</span>
                     <span>
-                      {usage.teamMembers.used} /{" "}
-                      {usage.teamMembers.limit === -1 ? "Unlimited" : usage.teamMembers.limit}
+                      {usage?.teamMembers?.used} /{" "}
+                      {usage?.teamMembers?.limit === -1 ? "Unlimited" : usage?.teamMembers?.limit}
                     </span>
                   </div>
                   <Progress
                     value={
-                      usage.teamMembers.limit === -1 ? 0 : (usage.teamMembers.used / usage.teamMembers.limit) * 100
+                      usage?.teamMembers?.limit === -1 ? 0 : (usage?.teamMembers?.used / usage?.teamMembers?.limit) * 100
                     }
                     className="h-2"
                   />
@@ -295,9 +211,8 @@ export default function BillingPage() {
             {plans.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative p-6 border rounded-lg ${
-                  plan.popular ? "border-primary shadow-lg" : "border-border"
-                }`}
+                className={`relative p-6 border rounded-lg ${plan.popular ? "border-primary shadow-lg" : "border-border"
+                  }`}
               >
                 {plan.popular && (
                   <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2">Most Popular</Badge>
@@ -305,19 +220,26 @@ export default function BillingPage() {
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-bold">{plan.name}</h3>
                   <div className="mt-2">
-                    <span className="text-3xl font-bold">${plan.price}</span>
+                    <span className="text-3xl font-bold">${(plan.price_cents / 100).toFixed(2)}</span>
                     <span className="text-muted-foreground">/{plan.interval}</span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">{plan.description}</p>
                 </div>
                 <ul className="space-y-2 mb-6">
-                  {plan.features.map((feature, index) => (
+                  {Object.entries(plan.features).map(([key, value], index) => (
                     <li key={index} className="flex items-center gap-2 text-sm">
                       <Check className="h-4 w-4 text-green-600" />
-                      {feature}
+                      {typeof value === "boolean" ? (
+                        value ? key.replace("_", " ") : null
+                      ) : (
+                        <>
+                          {value} {key.replace("_", " ")}
+                        </>
+                      )}
                     </li>
                   ))}
                 </ul>
+
                 <Button
                   className="w-full"
                   variant={plan.popular ? "default" : "outline"}
@@ -346,7 +268,7 @@ export default function BillingPage() {
                   <div>
                     <p className="font-medium">Invoice #{invoice.number}</p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(invoice.created * 1000).toLocaleDateString()} • $
+                      {new Date(invoice.created).toLocaleDateString()} • $
                       {(invoice.amount_paid / 100).toFixed(2)}
                     </p>
                   </div>

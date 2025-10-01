@@ -59,17 +59,35 @@ export default function WidgetPage() {
         URL.revokeObjectURL(url);
     };
 
+    // 🔹 Helper: get <script> embed attributes
+    function getScriptData() {
+        // const currentScript = document.currentScript as HTMLScriptElement | null;
+        // if (!currentScript) return { siteId: null, token: null };
+        // return {
+        //     siteId: currentScript.dataset.siteId ?? null,
+        //     token: currentScript.dataset.token ?? null,
+        // };
+
+        const siteId = new URLSearchParams(window.location.search).get("site-id");
+        const token = new URLSearchParams(window.location.search).get("token");
+
+        return { siteId, token };
+    }
+
+    // 🔹 Session helper with expiry refresh
     function getOrCreateSessionId(): string {
         const SESSION_TIMEOUT_MINUTES = 30;
         const now = Date.now();
 
         const stored = localStorage.getItem("neural-bot-session");
         if (stored) {
-            const { sessionId, createdAt } = JSON.parse(stored);
-            const ageMinutes = (now - createdAt) / 1000 / 60;
+            const { sessionId, lastActive } = JSON.parse(stored);
+            const ageMinutes = (now - lastActive) / 1000 / 60;
 
             if (ageMinutes < SESSION_TIMEOUT_MINUTES) {
-                return sessionId; // still valid
+                // refresh timestamp
+                localStorage.setItem("neural-bot-session", JSON.stringify({ sessionId, lastActive: now }));
+                return sessionId;
             }
         }
 
@@ -77,11 +95,10 @@ export default function WidgetPage() {
         const newSessionId = crypto.randomUUID();
         localStorage.setItem(
             "neural-bot-session",
-            JSON.stringify({ sessionId: newSessionId, createdAt: now })
+            JSON.stringify({ sessionId: newSessionId, lastActive: now })
         );
         return newSessionId;
     }
-
 
     const sendMessage = async () => {
         if (!input.trim()) return;
@@ -99,19 +116,14 @@ export default function WidgetPage() {
             setDots(".".repeat(dotIndex));
         }, 500);
 
-
         try {
-            // Retrieve siteId and token from script tag
-            const siteId = new URLSearchParams(window.location.search).get("site-id");
-            const token = new URLSearchParams(window.location.search).get("token");
-
-            // console.log(siteId, token)
-
+            // Retrieve siteId and token from <script> dataset
+            const { siteId, token } = getScriptData();
             if (!siteId || !token) throw new Error("Missing siteId or token in <script>");
 
             // 🔹 always resolve session with expiry check
             const sessionId = getOrCreateSessionId();
-            // console.log(siteId, token, sessionId);
+
             const res = await fetch(`/api/sites/${siteId}/chat/retrieval`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -145,7 +157,8 @@ export default function WidgetPage() {
             }
 
             setMessages((prev) => [...prev, { from: "bot", text: botText }]);
-        } catch {
+        } catch (error) {
+            console.log(error)
             setMessages((prev) => [...prev, { from: "bot", text: "❌ Error: Could not get response" }]);
         } finally {
             clearInterval(dotInterval);
@@ -220,7 +233,6 @@ export default function WidgetPage() {
                     </button>
                 </div>
             </div>
-
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">

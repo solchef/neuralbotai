@@ -140,13 +140,8 @@ export const SupabaseService = {
 
 
         const user = await SupabaseService.getUser()
-        console.log(user)
+        // console.log("user", user)
         if (!user) redirect("/login")
-
-        const { data: members } = await supabase
-            .from("memberships").select()
-
-        console.log(members)
 
         const { data: membership } = await supabase
             .from("memberships")
@@ -169,7 +164,7 @@ export const SupabaseService = {
             .eq("user_id", user?.id)
             // .not("accepted_at", "is", null)
             .single();
-        console.log(membership)
+        // console.log(membership)
 
         if (!membership) {
             redirect("/onboarding")
@@ -193,14 +188,14 @@ export const SupabaseService = {
         return data
     },
 
-    async getUsage(tenantId: string) {
-        const { data, error } = await supabase
-            .from("usage")
-            .select("queries_count")
-            .eq("tenant_id", tenantId)
-        if (error) throw error
-        return data || []
-    },
+    // async getUsage(tenantId: string) {
+    //     const { data, error } = await supabase
+    //         .from("usage")
+    //         .select("queries_count")
+    //         .eq("tenant_id", tenantId)
+    //     if (error) throw error
+    //     return data || []
+    // },
 
     async getTeamCount(tenantId: string) {
         const { count, error } = await supabase
@@ -729,6 +724,42 @@ export const SupabaseService = {
         }
     },
 
+    async getPlans() {
+        const { data, error } = await supabase.from("plans").select("*")
+        if (error) throw error
+        return data || []
+    },
+
+    async getCurrentPlan() {
+        const { data, error } = await supabase.from("subscriptions").select("*").maybeSingle()
+        if (error) throw error
+        return data
+    },
+
+    // async getUsage(tenantId: string) {
+    //     const { data, error } = await supabase
+    //         .from("usage")
+    //         .select("queries_count")
+    //         .eq("tenant_id", tenantId)
+    //     if (error) throw error
+    //     return data || []
+    // },
+
+
+    async getUsage(tenant_id: string) {
+        const { data, error } = await supabase.from("usage").select("*").maybeSingle()
+        if (error) throw error
+        return data || []
+    },
+
+    async getInvoices() {
+        const { data, error } = await supabase
+            .from("invoices")
+            .select("*")
+            .order("created_at", { ascending: false })
+        if (error) throw error
+        return data || []
+    }
 
 
 }

@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient()
+    const supabase = await createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's profile and tenant
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single()
+    const { data: profile } = await supabase.from("profiles").select("id").eq("id", user.id).single()
 
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
@@ -26,26 +26,26 @@ export async function GET(request: NextRequest) {
 
     // Count conversations this month
     const { count: conversationsCount } = await supabase
-      .from("conversations")
+      .from("chat_logs")
       .select("*", { count: "exact", head: true })
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", profile.id)
       .gte("created_at", startOfMonth.toISOString())
 
     // Count active sites
     const { count: sitesCount } = await supabase
       .from("sites")
       .select("*", { count: "exact", head: true })
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", profile.id)
       .eq("status", "active")
 
     // Count team members
     const { count: teamMembersCount } = await supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", profile.id)
 
     // Get tenant plan limits
-    const { data: tenant } = await supabase.from("tenants").select("plan_name").eq("id", profile.tenant_id).single()
+    const { data: tenant } = await supabase.from("tenants").select("plan_name").eq("id", profile.id).single()
 
     // Define plan limits
     const planLimits: Record<string, any> = {

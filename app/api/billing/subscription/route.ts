@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient()
+    const supabase = await createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's profile and tenant
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single()
+    const { data: profile } = await supabase.from("profiles").select("id").eq("id", user.id).single()
 
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const { data: tenant } = await supabase
       .from("tenants")
       .select("subscription_id, plan_name, plan_price, subscription_status")
-      .eq("id", profile.tenant_id)
+      .eq("id", profile.id)
       .single()
 
     if (!tenant || !tenant.subscription_id) {

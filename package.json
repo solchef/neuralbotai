@@ -16,6 +16,7 @@
     "@langchain/langgraph-sdk": "^0.0.60",
     "@langchain/openai": "^0.4.9",
     "@langchain/textsplitters": "^0.1.0",
+    "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
     "@radix-ui/react-aspect-ratio": "latest",
