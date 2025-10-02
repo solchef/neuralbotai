@@ -32,25 +32,25 @@ export const useSiteTextTrainingStore = create<SitesState>((set, get) => ({
 
     fetchTextEntries: async (siteId) => {
         set({ isLoading: true })
-        const entries = await SupabaseService.getTextEntries(siteId)
+        const entries = await SupabaseService.text.getTextEntries(siteId)
         set({ textEntries: entries, isLoading: false })
     },
 
     addTextEntry: async (siteId, title, content) => {
         const chars = content.length
-        const newEntry = await SupabaseService.addTextEntry(siteId, title, content, chars)
+        const newEntry = await SupabaseService.text.addTextEntry(siteId, title, content, chars)
         set({ textEntries: [...get().textEntries, newEntry] })
     },
 
     updateTextEntry: async (id, title, content) => {
-        const updated = await SupabaseService.updateTextEntry(id, title, content)
+        const updated = await SupabaseService.text.updateTextEntry(id, title, content)
         set({
             textEntries: get().textEntries.map((t) => (t.id === id ? updated : t)),
         })
     },
 
     deleteTextEntry: async (id) => {
-        await SupabaseService.deleteTextEntry(id)
+        await SupabaseService.text.deleteTextEntry(id)
         set({
             textEntries: get().textEntries.filter((t) => t.id !== id),
         })

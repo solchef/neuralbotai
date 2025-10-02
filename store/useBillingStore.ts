@@ -6,7 +6,10 @@ interface Plan {
     id: string
     name: string
     price_cents: number
-    features: string[]
+    interval: string
+    description?: string
+    features: Record<string, any>
+    popular: boolean
 }
 
 interface Usage {
@@ -21,53 +24,64 @@ interface Invoice {
     created: string
     amount_paid: number
     status: string
-    invoice_pdf: string
+    invoice_pdf?: string
+}
+
+interface CurrentPlan {
+    id: string
+    name: string
+    price: number
+    interval: string
+    status: string
+    current_period_end: string
+    last4: string
 }
 
 interface BillingState {
-    currentPlan: any | null
+    plans: Plan[]
+    currentPlan: CurrentPlan | null
     usage: Usage | null
     invoices: Invoice[]
-    plans: Plan[]
     loading: boolean
-    fetchBillingData: (tenant_id: string) => Promise<void>
-    fetchPlans: () => Promise<void>
+    error: string | null
+
+    // Actions
+    fetchBilling: (tenant_id: string) => Promise<void>
 }
 
 export const useBillingStore = create<BillingState>((set) => ({
+    plans: [],
     currentPlan: null,
     usage: null,
     invoices: [],
-    plans: [],
-    loading: true,
+    loading: false,
+    error: null,
 
-    fetchBillingData: async (tenant_id) => {
-        set({ loading: true })
+    fetchBilling: async (tenant_id: string) => {
+        set({ loading: true, error: null })
         try {
-            const [plan, usage, invoices] = await Promise.all([
-                SupabaseService.getCurrentPlan(),
+            const [plans, currentPlan, usage, invoices] = await Promise.all([
+                SupabaseService.getPlans(),
+                SupabaseService.getCurrentPlan(tenant_id),
                 SupabaseService.getUsage(tenant_id),
-                SupabaseService.getInvoices(),
+                SupabaseService.getInvoices(tenant_id),
             ])
 
+            console.log(plans,
+                currentPlan,
+                usage,
+                invoices,)
+
             set({
-                currentPlan: plan,
+                plans,
+                currentPlan,
                 usage,
                 invoices,
                 loading: false,
             })
-        } catch (e) {
-            console.error("Failed to fetch billing data:", e)
-            set({ loading: false })
-        }
-    },
-
-    fetchPlans: async () => {
-        try {
-            const plans: Plan[] = await SupabaseService.getPlans()
-            set({ plans })
-        } catch (e) {
-            console.error("Failed to fetch plans:", e)
+        } catch (err: any) {
+            console.error("Billing fetch error:", err)
+            set({ error: err.message || "Failed to fetch billing", loading: false })
         }
     },
 }))

@@ -15,8 +15,8 @@ export interface Link {
     image: string | null
     chars: number
     status: LinkStatus
-    file_name?: string | null      // NEW: only present if type = "doc"
-    file_size?: number | null      // NEW: only present if type = "doc"
+    file_name?: string | null
+    file_size?: number | null
     created_at: string
 }
 
@@ -67,12 +67,12 @@ export const useSiteLinksTrainingStore = create<LinkState>((set, get) => ({
 
         const stats: CrawlStats = {
             crawledLinks: links.length,
-            totalChars: links.reduce((sum, l) => sum + (l.chars || 0), 0),
+            totalChars: links.reduce((sum: any, l: any) => sum + (l.chars || 0), 0),
             maxChars: get().stats.maxChars,
-            indexed: links.filter((l) => l.status === "indexed").length,
-            pending: links.filter((l) => l.status === "pending").length,
-            failed: links.filter((l) => l.status === "failed").length,
-            noSpace: links.filter((l) => l.status === "no-space").length,
+            indexed: links.filter((l: any) => l.status === "indexed").length,
+            pending: links.filter((l: any) => l.status === "pending").length,
+            failed: links.filter((l: any) => l.status === "failed").length,
+            noSpace: links.filter((l: any) => l.status === "no-space").length,
         }
 
         set({ links, stats, loading: false })
@@ -81,7 +81,7 @@ export const useSiteLinksTrainingStore = create<LinkState>((set, get) => ({
     addLinks: async (siteId, urls) => {
         const rawLinks = await SupabaseService.addLinks(siteId, urls)
 
-        const newLinks: Link[] = rawLinks.map((l) => ({
+        const newLinks: Link[] = rawLinks.map((l: any) => ({
             ...l,
             status: normalizeStatus(l.status),
         }))

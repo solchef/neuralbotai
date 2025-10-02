@@ -1,6 +1,7 @@
 import { create } from "zustand"
-import { SupabaseService, ChatbotConfig } from "@/lib/supabase/service"
+import { SupabaseService } from "@/lib/supabase/service"
 import { DEFAULT_CHATBOT_CONFIG } from "@/lib/config/chatbot"
+import { ChatbotConfig } from "@/lib/types/chatBotConfig"
 
 type ChatbotConfigState = {
     config: ChatbotConfig | null

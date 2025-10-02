@@ -76,7 +76,7 @@ export const useChatStore = create<ChatStore>((set) => ({
                     let satisfaction: "positive" | "neutral" | "negative" | null = null
                     if (feedback && feedback.length > 0) {
                         const avgRating =
-                            feedback.reduce((sum, f) => sum + (f.rating ?? 0), 0) /
+                            feedback.reduce((sum: any, f: any) => sum + (f.rating ?? 0), 0) /
                             feedback.length
                         if (avgRating >= 4) satisfaction = "positive"
                         else if (avgRating <= 2) satisfaction = "negative"

@@ -1,5 +1,3 @@
-// 
-
 "use client"
 
 import type React from "react"
@@ -7,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { SiteSidebar } from "@/components/dashboard/site-sidebar"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 export function DashboardLayoutClient({
     children,
@@ -22,7 +20,15 @@ export function DashboardLayoutClient({
     const [collapsed, setCollapsed] = useState(false)
 
     // Detect if we are inside a "site" dashboard page
-    const isSitePage = pathname?.startsWith("/dashboard/sites/")
+    const isSitePage = pathname?.startsWith("/dashboard/sites/") && pathname !== "/dashboard/sites/new"
+
+    // console.log(isSitePage)
+
+    useEffect(() => {
+        if (pathname === "/dashboard/sites/new") {
+            setCollapsed(true)
+        }
+    }, [pathname])
 
     return (
         <div className="min-h-screen bg-background overflow-x-hidden">

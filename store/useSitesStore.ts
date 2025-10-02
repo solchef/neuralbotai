@@ -1,7 +1,6 @@
 import { create } from "zustand"
 import { SupabaseService } from "@/lib/supabase/service"
 
-
 interface SitesState {
     isLoading: boolean
     error: string | null
@@ -12,11 +11,13 @@ interface SitesState {
     createSite: (input: {
         title: string
         description?: string
+        ingestType: "links" | "documents"
+        linkType?: string
+        linkValue?: string
         domain?: string
-        ingestType: "website" | "documents"
-        maxDepth: string
-        maxPages: string
-        excludePatterns: string
+        maxDepth?: string
+        maxPages?: string
+        excludePatterns?: string
         files?: FileList | null
     }) => Promise<string | null>
 
@@ -40,32 +41,97 @@ export const useSitesStore = create<SitesState>((set, get) => ({
             const tenantId = await SupabaseService.getTenantForUser(user.id)
             if (!tenantId) throw new Error("No tenant found")
 
+            // 1️⃣ Create the site
             const site = await SupabaseService.createSite({
                 tenantId,
                 title: input.title,
                 description: input.description,
-                domain: input.domain,
-                crawlSettings: {
-                    max_depth: parseInt(input.maxDepth),
-                    max_pages: parseInt(input.maxPages),
-                    exclude_patterns: input.excludePatterns
-                        .split("\n")
-                        .map((p) => p.trim())
-                        .filter(Boolean),
-                },
+                domain: input.linkType === "fullWebsite" ? input.linkValue : undefined,
+                crawlSettings:
+                    input.linkType === "fullWebsite"
+                        ? {
+                            max_depth: parseInt(input.maxDepth || "3"),
+                            max_pages: parseInt(input.maxPages || "100"),
+                            exclude_patterns: input.excludePatterns
+                                ? input.excludePatterns
+                                    .split("\n")
+                                    .map((p) => p.trim())
+                                    .filter(Boolean)
+                                : [],
+                        }
+                        : undefined,
             })
 
-            if (input.ingestType === "documents" && input.files?.length) {
-                console.log("TODO: Upload documents to storage", input.files)
+            // 2️⃣ Map linkType -> DB type
+            if (
+                input.ingestType === "links" &&
+                input.linkType &&
+                input.linkType !== "fullWebsite" &&
+                input.linkValue
+            ) {
+                type LinkDBType =
+                    | "link"
+                    | "doc"
+                    | "webpage"
+                    | "youtube"
+                    | "sitemap"
+                    | "freshdesk"
+                    | "pdf"
+                    | "word"
+                    | "excel"
+
+                let dbType: LinkDBType = "link"
+
+                switch (input.linkType) {
+                    case "webpage":
+                        dbType = "webpage"
+                        break
+                    case "youtube":
+                        dbType = "youtube"
+                        break
+                    case "sitemap":
+                        dbType = "sitemap"
+                        break
+                    case "freshdesk":
+                        dbType = "freshdesk"
+                        break
+                    case "pdf":
+                        dbType = "pdf"
+                        break
+                    case "word":
+                        dbType = "word"
+                        break
+                    case "excel":
+                        dbType = "excel"
+                        break
+                    default:
+                        dbType = "link"
+                }
+
+                await SupabaseService.link.createLink({
+                    siteId: site.id,
+                    type: dbType,
+                    url: input.linkValue,
+                })
             }
 
-            if (input.ingestType === "website" && input.domain) {
+            // 3️⃣ Document uploads (files go through uploadDocument)
+            if (input.ingestType === "documents" && input.files?.length) {
+                for (const file of Array.from(input.files)) {
+                    await SupabaseService.uploadDocument(site.id, file)
+                }
+            }
+
+            // 4️⃣ Website crawl → mark status crawling
+            if (input.ingestType === "links" && input.linkType === "fullWebsite") {
                 await SupabaseService.updateSiteStatus(site.id, "crawling")
             }
 
             return site.id
         } catch (err) {
-            set({ error: err instanceof Error ? err.message : "Error creating site" })
+            set({
+                error: err instanceof Error ? err.message : "Error creating site",
+            })
             return null
         } finally {
             set({ isLoading: false })
@@ -106,7 +172,9 @@ export const useSitesStore = create<SitesState>((set, get) => ({
                 set({ site: { ...site, status: "crawling" } })
             }
         } catch (err) {
-            set({ error: err instanceof Error ? err.message : "Error ingesting site" })
+            set({
+                error: err instanceof Error ? err.message : "Error ingesting site",
+            })
         } finally {
             set({ isLoading: false })
         }

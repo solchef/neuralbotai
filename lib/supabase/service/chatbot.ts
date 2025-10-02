@@ -1,35 +1,20 @@
 "use client"
-import { ChatbotTuning } from "@/lib/types/chatBotConfig"
 import { createClient } from "../client"
-
+import { ChatbotConfig, ChatbotTuning } from "@/lib/types/chatBotConfig"
 const supabase = createClient()
 
-export type ChatbotConfig = {
-    siteId: string
-    title: string
-    titleEnabled: boolean
-    welcomeMessage: string
-    welcomeEnabled: boolean
-    primaryColor: string
-    theme: "light" | "dark" | "auto"
-    avatar: string
-}
+const mapFromDb = (row: any): ChatbotConfig => ({
+    siteId: row.site_id,
+    title: row.title,
+    titleEnabled: row.title_enabled,
+    welcomeMessage: row.welcome_message,
+    welcomeEnabled: row.welcome_enabled,
+    primaryColor: row.primary_color,
+    theme: row.theme,
+    avatar: row.avatar,
+})
 
-function mapFromDb(row: any): ChatbotConfig {
-    return {
-        siteId: row.site_id,
-        title: row.title,
-        titleEnabled: row.title_enabled,
-        welcomeMessage: row.welcome_message,
-        welcomeEnabled: row.welcome_enabled,
-        primaryColor: row.primary_color,
-        theme: row.theme,
-        avatar: row.avatar,
-    }
-}
-
-
-function mapToDb(values: Partial<ChatbotConfig>): any {
+const mapToDb = (values: Partial<ChatbotConfig>): any => {
     const mapped: any = {}
     if (values.siteId !== undefined) mapped.site_id = values.siteId
     if (values.title !== undefined) mapped.title = values.title
@@ -81,26 +66,53 @@ function mapTuningFromDb(row: any): ChatbotTuning {
     }
 }
 
-export const ChatbotService = {
-    async getChatbotConfig(siteId: string) {
-        const { data, error } = await supabase.from("chatbots").select("*").eq("site_id", siteId).single()
-        if (error) throw error
-        return data
-    },
+export const getChatbotConfig = async (siteId: string) => {
+    const { data, error } = await supabase
+        .from("chatbot_configs")
+        .select("*")
+        .eq("site_id", siteId)
+        .maybeSingle()
 
-    async saveChatbotConfig(siteId: string, config: ChatbotConfig) {
-        const { error } = await supabase.from("chatbots").upsert({ site_id: siteId, ...mapToDb(config) })
-        if (error) throw error
-    },
-
-    async getChatbotTuning(siteId: string) {
-        const { data, error } = await supabase.from("chatbot_tuning").select("*").eq("site_id", siteId).single()
-        if (error) throw error
-        return data
-    },
-
-    async saveChatbotTuning(siteId: string, tuning: any) {
-        const { error } = await supabase.from("chatbot_tuning").upsert({ site_id: siteId, ...tuning })
-        if (error) throw error
-    },
+    if (error) throw error
+    return data ? mapFromDb(data) : null
 }
+
+export const saveChatbotConfig = async (siteId: string, values: Partial<ChatbotConfig>) => {
+    const payload = mapToDb(values)
+    const { data, error } = await supabase
+        .from("chatbot_configs")
+        .upsert({ site_id: siteId, ...payload }, { onConflict: "site_id" })
+        .select()
+        .single()
+
+    if (error) throw error
+    return mapFromDb(data)
+}
+
+export const getChatbotTuning = async (siteId: string): Promise<ChatbotTuning> => {
+    const { data, error } = await supabase
+        .from("chatbot_tuning")
+        .select("*")
+        .eq("site_id", siteId)
+        .maybeSingle()
+
+    if (error) throw error
+    return mapTuningFromDb(data)
+}
+
+export const saveChatbotTuning = async (
+    siteId: string,
+    values: Partial<ChatbotTuning>,
+): Promise<ChatbotTuning> => {
+    const payload = mapTuningToDb(values)
+    const { data, error } = await supabase
+        .from("chatbot_tuning")
+        .upsert({ site_id: siteId, ...payload }, { onConflict: "site_id" })
+        .select()
+        .single()
+
+    if (error) throw error
+    return mapTuningFromDb(data)
+}
+
+

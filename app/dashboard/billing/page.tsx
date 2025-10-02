@@ -16,13 +16,11 @@ export default function BillingPage() {
   // const [invoices, setInvoices] = useState<any[]>([])
   // const [loading, setLoading] = useState(true)
 
-  const { currentPlan, usage, invoices, plans, loading, fetchPlans, fetchBillingData } = useBillingStore()
+  const { currentPlan, usage, invoices, plans, loading, fetchBilling } = useBillingStore()
 
   useEffect(() => {
-    fetchBillingData("0152e3e7-2029-4b43-82b9-422dab661c10")
-    fetchPlans()
-  }, [fetchBillingData, fetchPlans])
-
+    fetchBilling("0152e3e7-2029-4b43-82b9-422dab661c10")
+  }, [fetchBilling])
 
   const handleUpgrade = async (planName: string) => {
     try {
