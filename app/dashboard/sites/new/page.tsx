@@ -183,21 +183,51 @@ export default function NewSitePage() {
                           </p>
 
                           <div className="grid gap-4">
-                            <div>
-                              <Label>Max Depth</Label>
-                              <Input value={maxDepth} onChange={(e) => setMaxDepth(e.target.value)} />
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="grid gap-2">
+                                <Label htmlFor="maxDepth">Max Crawl Depth</Label>
+                                <Select value={maxDepth} onValueChange={setMaxDepth}>
+                                  <SelectTrigger className="bg-input">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="1">1 level</SelectItem>
+                                    <SelectItem value="2">2 levels</SelectItem>
+                                    <SelectItem value="3">3 levels</SelectItem>
+                                    <SelectItem value="4">4 levels</SelectItem>
+                                    <SelectItem value="5">5 levels</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="grid gap-2">
+                                <Label htmlFor="maxPages">Max Pages</Label>
+                                <Select value={maxPages} onValueChange={setMaxPages}>
+                                  <SelectTrigger className="bg-input">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="50">50 pages</SelectItem>
+                                    <SelectItem value="100">100 pages</SelectItem>
+                                    <SelectItem value="250">250 pages</SelectItem>
+                                    <SelectItem value="500">500 pages</SelectItem>
+                                    <SelectItem value="1000">1000 pages</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
-                            <div>
-                              <Label>Max Pages</Label>
-                              <Input value={maxPages} onChange={(e) => setMaxPages(e.target.value)} />
-                            </div>
-                            <div>
-                              <Label>Exclude Patterns</Label>
+                            <div className="grid gap-2">
+                              <Label htmlFor="excludePatterns">Exclude Patterns (optional)</Label>
                               <Textarea
-                                placeholder="One regex per line"
+                                id="excludePatterns"
+                                placeholder="/admin/*&#10;/private/*&#10;*.pdf"
                                 value={excludePatterns}
                                 onChange={(e) => setExcludePatterns(e.target.value)}
+                                className="bg-input"
+                                rows={3}
                               />
+                              <p className="text-xs text-muted-foreground">
+                                One pattern per line. Use * for wildcards (e.g., /admin/*, *.pdf)
+                              </p>
                             </div>
                           </div>
 

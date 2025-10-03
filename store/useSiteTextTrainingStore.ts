@@ -38,7 +38,7 @@ export const useSiteTextTrainingStore = create<SitesState>((set, get) => ({
 
     addTextEntry: async (siteId, title, content) => {
         const chars = content.length
-        const newEntry = await SupabaseService.text.addTextEntry(siteId, title, content, chars)
+        const newEntry = await SupabaseService.addTextEntry(siteId, title, content, chars)
         set({ textEntries: [...get().textEntries, newEntry] })
     },
 

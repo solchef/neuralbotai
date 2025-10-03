@@ -24,13 +24,8 @@ export const useDashboardStore = create<DashboardState>((set) => ({
     loadDashboard: async (tenantId) => {
         set({ isLoading: true, error: null })
         try {
-            // 1️⃣ Load sites
             const sites = await SupabaseService.getSites(tenantId)
-
-            // 2️⃣ Load aggregated usage + plan limits
             const usage = await SupabaseService.getUsage(tenantId)
-
-            // 3️⃣ Set state
             set({
                 sites,
                 usage,

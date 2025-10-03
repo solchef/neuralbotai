@@ -27,6 +27,8 @@ export function DashboardLayoutClient({
     useEffect(() => {
         if (pathname === "/dashboard/sites/new") {
             setCollapsed(true)
+        } else {
+            setCollapsed(false)
         }
     }, [pathname])
 
